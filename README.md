@@ -69,9 +69,3 @@ npm test --prefix supabase
 ```
 
 Veja [VALIDACAO_WEB.md](VALIDACAO_WEB.md) e [SEGURANCA.md](SEGURANCA.md). O teste em iPhone real permanece pendente; valide os fluxos e a voz nos aparelhos usados na disciplina.
-
-## Estado da hospedagem
-
-A hospedagem anterior no Cloudflare Pages foi excluída em 01/10/2026 a pedido do titular. Este repositório preserva o código-fonte e não republica o site automaticamente. O projeto Supabase foi preservado.
-
-Para a demonstração anterior, a confirmação de e-mail foi desativada com autorização para uso de dados fictícios. Uma nova instalação deve definir sua própria configuração de autenticação. Recuperação de senha por e-mail depende de SMTP configurado e da opção `emailRecoveryEnabled`.
