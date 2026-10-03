@@ -35,6 +35,8 @@ flutter run -d chrome
 
 A aplicação usa diretamente o Supabase; a API Python é necessária somente para a alternativa local. Sem configuração válida, a interface mostra “Site em preparação”.
 
+Na demonstração acadêmica configurada, a confirmação de e-mail foi desativada com autorização do titular para uso de dados fictícios. O endereço informado não é verificado; a senha precisa ter pelo menos 10 caracteres. Para uma instalação com confirmação de e-mail, configure um serviço SMTP próprio e valide o envio antes de liberar os cadastros.
+
 ## Compilar e publicar
 
 ```powershell
