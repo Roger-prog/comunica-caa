@@ -16,7 +16,7 @@ Selecionar um símbolo registra uso da prancha; não confirma automaticamente fa
 
 ## Executar a versão Web
 
-Instale o Flutter e crie um projeto Supabase. Execute a migração `supabase/migrations/001_comunica.sql` uma única vez em um banco novo. Siga [PUBLICAR_SITE.md](PUBLICAR_SITE.md) para configurar autenticação e Turnstile.
+Instale o Flutter e crie um projeto Supabase. Execute a migração `supabase/migrations/001_comunica.sql` uma única vez em um banco novo. Configure autenticação e endereços de retorno no painel Supabase. Se usar Turnstile, configure o widget e a validação correspondente no Supabase.
 
 Copie o exemplo de configuração:
 
@@ -41,7 +41,7 @@ A aplicação usa diretamente o Supabase; a API Python é necessária somente pa
 flutter build web --release --no-web-resources-cdn
 ```
 
-Os arquivos compilados ficam em `build/web/`. Para preparar o ZIP do Cloudflare Pages, execute `configurar-site.ps1` com a URL, a chave pública do Supabase e a Site key pública do Turnstile, conforme [PUBLICAR_SITE.md](PUBLICAR_SITE.md).
+Os arquivos compilados ficam em `build/web/`. Para preparar o ZIP do Cloudflare Pages, execute `configurar-site.ps1` com a URL, a chave pública do Supabase e a Site key pública do Turnstile. Quando CAPTCHA não estiver configurado, passe `-TurnstileSiteKey ''` explicitamente.
 
 O repositório contém código-fonte; builds, dados locais, capturas de tela e configuração do ambiente ficam fora do Git.
 
@@ -68,4 +68,4 @@ npm ci --prefix supabase
 npm test --prefix supabase
 ```
 
-Veja [VALIDACAO_WEB.md](VALIDACAO_WEB.md) e [SEGURANCA.md](SEGURANCA.md). O teste em iPhone real permanece pendente; valide os fluxos e a voz nos aparelhos usados na disciplina.
+O teste em iPhone real permanece pendente; valide os fluxos e a voz nos aparelhos usados na disciplina.
