@@ -1,63 +1,35 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-
-# Widget Preview related
-.widget_preview/
-
 node_modules/
-*.sqlite3
+dist/
+coverage/
 .env
 .env.*
-site-compilado/
-comunica-site-configurado.zip
+!.env.example
+*.local
+*.log
+.DS_Store
+.vercel/
+.netlify/
 
-# Dados e configuração específicos do ambiente
-/screenshots/
-/web/config.json
-/verificacao-retirada-site.json
+# Local artifacts and runtime data
+screenshots/
+backups/
+artifacts/
 *.zip
-*.jks
-*.keystore
+*.har
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.dump
+*.backup
+*.pem
+*.key
+*.p12
+*.pfx
+verificacao*.json
+
+# Legacy local files outside the React source tree
+/android/
+/ios/
+/web/

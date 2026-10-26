@@ -1,73 +1,68 @@
-# Comunica — Comunicação Aumentativa e Alternativa
+# Comunica — CAA
 
-Projeto acadêmico em Flutter, com interface Web, autenticação pelo Supabase Auth e banco SQL PostgreSQL. A aplicação oferece uma prancha de comunicação com símbolos, síntese de voz e acompanhamento de uso e evolução.
+Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A aplicação permite expressar necessidades, sentimentos e escolhas por meio de uma prancha visual com leitura em voz alta.
 
 ## Funcionalidades
 
-- Cadastro e login de responsáveis e fonoaudiólogos.
-- Perfis de crianças e vocabulário personalizado com palavras, emojis e categorias.
-- Prancha com voz do navegador e fila de seleções que aguardam envio.
-- Avaliação manual: CAA utilizada, tentativa de vocalização, palavra falada e domínio da palavra.
-- Histórico, relatórios por período e exportação CSV.
-- Autorização e revogação de acesso dos profissionais pelo responsável.
-- Verificação Turnstile nos fluxos de autenticação quando configurada.
+- Prancha com 24 símbolos organizados em seis categorias, com busca por palavras.
+- Leitura do símbolo selecionado e composição de frases com até 12 símbolos.
+- Cadastro e autenticação de usuários.
+- Perfis individuais de crianças e registro das comunicações por perfil.
+- Histórico e indicadores de utilização em períodos de 7 ou 30 dias.
+- Ajustes de voz, velocidade da fala e tamanho dos cartões.
+- Interface responsiva, navegação por teclado e identificação textual dos símbolos.
+- Demonstração interativa sem cadastro, com dados temporários mantidos apenas durante a sessão.
 
-Selecionar um símbolo registra uso da prancha; não confirma automaticamente fala ou domínio. A aparência dos emojis e as vozes disponíveis dependem do dispositivo. O sistema não realiza diagnóstico nem grava áudio ou vídeo.
+Os indicadores representam o uso da prancha. Não constituem diagnóstico, avaliação clínica ou comprovação de domínio de palavras. A aparência dos símbolos e a disponibilidade das vozes variam conforme o navegador e o sistema operacional.
 
-## Executar a versão Web
+## Arquitetura
 
-Instale o Flutter e crie um projeto Supabase. Execute a migração `supabase/migrations/001_comunica.sql` uma única vez em um banco novo. Configure autenticação e endereços de retorno no painel Supabase. Se usar Turnstile, configure o widget e a validação correspondente no Supabase.
+O front-end é uma aplicação React com TypeScript, compilada pelo Vite e estilizada com Tailwind CSS. A leitura utiliza a Web Speech API do navegador. O Supabase fornece autenticação e persistência em PostgreSQL, com controle de acesso por usuário no banco de dados.
 
-Copie o exemplo de configuração:
+## Organização do código
 
-```powershell
-Copy-Item web/config.example.json web/config.json
+```text
+src/
+├── auth/          # Sessão, login e cadastro
+├── components/    # Prancha, evolução e histórico
+├── data/          # Vocabulário inicial
+├── hooks/         # Síntese de voz e acesso aos dados
+├── lib/           # Cliente Supabase e tipos
+├── App.tsx        # Navegação e interface principal
+└── styles.css     # Estilos globais
+supabase/
+├── migrations/    # Estrutura e regras do banco
+└── tests/         # Verificação do isolamento de dados
 ```
 
-Edite `web/config.json`, informando `supabaseUrl`, `supabasePublishableKey` e a Site key pública em `turnstileSiteKey`. Use uma chave publishable ou anon; senhas, Secret keys e service_role não pertencem a esse arquivo. A configuração local não é versionada.
+## Requisitos
 
-Execute:
+- Node.js 24.15 ou superior da linha 24 e npm.
+- Navegador moderno; a leitura em voz alta depende do suporte à Web Speech API.
+- Projeto Supabase configurado para autenticação e armazenamento dos dados.
 
-```powershell
-flutter pub get
-flutter run -d chrome
+## Configuração e execução
+
+Instale as dependências com `npm ci`. Crie um arquivo `.env.local` com as variáveis indicadas em `.env.example`:
+
+| Variável | Finalidade |
+| --- | --- |
+| `VITE_SUPABASE_URL` | URL do projeto Supabase |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Chave pública publishable da aplicação |
+
+Configurações e credenciais específicas de cada ambiente não fazem parte do repositório. Aplique a migração disponível em `supabase/migrations/` no projeto de destino e configure os endereços de retorno da autenticação para o domínio da aplicação.
+
+```shell
+npm run dev
 ```
 
-A aplicação usa diretamente o Supabase; a API Python é necessária somente para a alternativa local. Sem configuração válida, a interface mostra “Site em preparação”.
+Sem configuração do Supabase, a interface pode ser acessada pelo modo de demonstração, sem persistência no banco.
 
-Na demonstração acadêmica configurada, a confirmação de e-mail foi desativada com autorização do titular para uso de dados fictícios. O endereço informado não é verificado; a senha precisa ter pelo menos 10 caracteres. Para uma instalação com confirmação de e-mail, configure um serviço SMTP próprio e valide o envio antes de liberar os cadastros.
+## Validação e publicação
 
-## Compilar e publicar
-
-```powershell
-flutter build web --release --no-web-resources-cdn
+```shell
+npm run check
+npm run build
 ```
 
-Os arquivos compilados ficam em `build/web/`. Para preparar o ZIP do Cloudflare Pages, execute `configurar-site.ps1` com a URL, a chave pública do Supabase e a Site key pública do Turnstile. Quando CAPTCHA não estiver configurado, passe `-TurnstileSiteKey ''` explicitamente.
-
-O repositório contém código-fonte; builds, dados locais, capturas de tela e configuração do ambiente ficam fora do Git.
-
-## Estrutura
-
-| Diretório | Conteúdo |
-|---|---|
-| `lib/` | Interface Flutter, autenticação e integração com Supabase. |
-| `web/` | Página inicial, integração Turnstile e configuração de hospedagem. |
-| `supabase/migrations/` | Tabelas, funções SQL e regras de acesso. |
-| `supabase/tests/` | Testes das regras SQL. |
-| `test/` e `integration_test/` | Testes Flutter e de integração. |
-| `android/` e `ios/` | Estrutura nativa Flutter. |
-| `server/` | API Python com SQLite, alternativa para execução local. |
-
-As instruções da alternativa local estão em [README_NATIVO.md](README_NATIVO.md). Ela usa `--dart-define=USE_LOCAL_API=true` e não sincroniza automaticamente o SQLite com o PostgreSQL.
-
-## Verificações
-
-```powershell
-flutter analyze
-flutter test
-npm ci --prefix supabase
-npm test --prefix supabase
-```
-
-O teste em iPhone real permanece pendente; valide os fluxos e a voz nos aparelhos usados na disciplina.
+O primeiro comando executa a verificação de tipos, os testes automatizados e o build. O build gera o diretório `dist/`, que pode ser publicado em uma hospedagem estática. Os arquivos `vercel.json` e `netlify.toml` incluem a configuração de build para esses provedores. As variáveis de ambiente devem ser definidas no ambiente de build da hospedagem.
