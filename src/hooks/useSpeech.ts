@@ -1,45 +1,103 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type SpeechEngine,
+  type SpeechFailure,
+  type SpeechOptions,
+  type SpeechVoice,
+} from "../lib/speechEngine";
+import { createEdgeSpeechEngine } from "../lib/edgeSpeechEngine";
 
-export interface SpeechOptions {
-  voiceURI?: string;
-  rate?: number;
-  volume?: number;
-}
+export type { SpeechOptions } from "../lib/speechEngine";
 
-/** Browser speech remains synchronous with the user's gesture, including on Safari. */
-export function useSpeech() {
-  const supported =
-    typeof window !== "undefined" &&
-    "speechSynthesis" in window &&
-    typeof window.SpeechSynthesisUtterance === "function";
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+/** Coordinates UI state; the default engine fetches MP3 and plays a local Blob URL. */
+export function useSpeech(engine?: SpeechEngine) {
+  const [defaultEngine] = useState(() =>
+    createEdgeSpeechEngine(
+      import.meta.env.VITE_TTS_API_URL?.trim() || "/api/tts",
+    ),
+  );
+  const selectedEngine = engine ?? defaultEngine;
+  const supported = selectedEngine.supported;
+  const [voices, setVoices] = useState<SpeechVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const currentUtterance = useRef<SpeechSynthesisUtterance | null>(null);
+  const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false);
   const generation = useRef(0);
+  const prefetches = useRef(new Set<() => void>());
 
   useEffect(() => {
-    if (!supported) return;
-
-    const synthesis = window.speechSynthesis;
-    const loadVoices = () => setVoices(synthesis.getVoices());
+    setSpeaking(false);
+    setError(null);
+    setNeedsPlaybackGesture(false);
+    const loadVoices = () => setVoices(selectedEngine.getVoices());
     loadVoices();
-    synthesis.addEventListener("voiceschanged", loadVoices);
+    const unsubscribe = selectedEngine.subscribeVoices(loadVoices);
 
     return () => {
-      synthesis.removeEventListener("voiceschanged", loadVoices);
+      unsubscribe();
       generation.current += 1;
-      currentUtterance.current = null;
-      synthesis.cancel();
+      for (const cancel of prefetches.current) cancel();
+      selectedEngine.cancel();
+      // Release session-scoped blobs and pending downloads on engine/user exit.
+      // clearCache remains reusable during React StrictMode's cleanup cycle.
+      selectedEngine.clearCache?.();
     };
-  }, [supported]);
+  }, [selectedEngine]);
+
+  const prefetch = useCallback(
+    (texts: readonly string[], options: SpeechOptions = {}): (() => void) => {
+      if (!supported || !selectedEngine.prefetch) return () => {};
+      try {
+        // The engine belongs to this hook instance: downloaded Blobs stay in RAM
+        // and are reused by speak(), without React renders or persistent storage.
+        const release = selectedEngine.prefetch(texts, options);
+        let active = true;
+        const cancel = () => {
+          if (!active) return;
+          active = false;
+          prefetches.current.delete(cancel);
+          release();
+        };
+        prefetches.current.add(cancel);
+        return cancel;
+      } catch {
+        // A background optimization must not prevent using the board or speak().
+        return () => {};
+      }
+    },
+    [selectedEngine, supported],
+  );
+
+  const prepareSentence = useCallback(
+    (texts: readonly string[], options: SpeechOptions = {}): (() => void) => {
+      if (!texts.length || !supported || !selectedEngine.prepareSentence)
+        return () => {};
+      try {
+        const release = selectedEngine.prepareSentence(texts, options);
+        let active = true;
+        const cancel = () => {
+          if (!active) return;
+          active = false;
+          prefetches.current.delete(cancel);
+          release();
+        };
+        prefetches.current.add(cancel);
+        return cancel;
+      } catch {
+        // Preparing audio must not play it or block editing the sentence.
+        return () => {};
+      }
+    },
+    [selectedEngine, supported],
+  );
 
   const stop = useCallback(() => {
     generation.current += 1;
-    currentUtterance.current = null;
-    if (supported) window.speechSynthesis.cancel();
+    selectedEngine.cancel();
     setSpeaking(false);
-  }, [supported]);
+    setNeedsPlaybackGesture(false);
+    setError(null);
+  }, [selectedEngine]);
 
   const speak = useCallback(
     (text: string, options: SpeechOptions = {}) => {
@@ -52,54 +110,86 @@ export function useSpeech() {
         return;
       }
 
-      const synthesis = window.speechSynthesis;
       const request = ++generation.current;
       // Invalidate previous callbacks before cancel(), which can emit an error event.
-      currentUtterance.current = null;
-      synthesis.cancel();
+      selectedEngine.cancel();
       setError(null);
+      setNeedsPlaybackGesture(false);
 
-      const utterance = new window.SpeechSynthesisUtterance(message);
-      const available = synthesis.getVoices();
-      const voice =
-        available.find((item) => item.voiceURI === options.voiceURI) ??
-        available.find((item) => /^pt[-_]BR$/i.test(item.lang)) ??
-        available.find((item) => /^pt(?:[-_]|$)/i.test(item.lang));
-      utterance.lang = voice?.lang ?? "pt-BR";
-      if (voice) utterance.voice = voice;
-      utterance.rate = Math.min(1.5, Math.max(0.5, options.rate ?? 1));
-      utterance.volume = Math.min(1, Math.max(0, options.volume ?? 1));
-      utterance.onend = () => {
+      const onEnd = () => {
         if (generation.current !== request) return;
-        currentUtterance.current = null;
         setSpeaking(false);
+        setNeedsPlaybackGesture(false);
       };
-      utterance.onerror = (event) => {
+      const onError = (reason: SpeechFailure) => {
         if (generation.current !== request) return;
-        currentUtterance.current = null;
         setSpeaking(false);
-        if (event.error === "canceled" || event.error === "interrupted") return;
+        if (reason === "canceled" || reason === "interrupted") return;
+        setNeedsPlaybackGesture(
+          reason === "not-allowed" && Boolean(selectedEngine.retryPlayback),
+        );
         setError(
-          event.error === "not-allowed"
-            ? "O navegador bloqueou o áudio. Toque novamente em um símbolo para iniciar a leitura."
-            : "Não foi possível reproduzir a voz. Confira o áudio do dispositivo e tente outra voz em Ajustes.",
+          reason === "not-allowed"
+            ? "O áudio está pronto. Toque em Ouvir áudio pronto para reproduzir."
+            : "Não foi possível gerar ou reproduzir a voz. Verifique a conexão e se o serviço de voz está disponível.",
         );
       };
-      // Retain the utterance while native speech is running.
-      currentUtterance.current = utterance;
       setSpeaking(true);
-      try {
-        synthesis.speak(utterance);
-      } catch {
-        currentUtterance.current = null;
+      const failedToStart = () => {
+        if (generation.current !== request) return;
         setSpeaking(false);
+        setNeedsPlaybackGesture(false);
         setError(
           "Não foi possível iniciar a leitura. Confira o áudio do dispositivo e tente novamente.",
         );
+      };
+      try {
+        // Start the request immediately; the engine plays the returned Blob
+        // without a second download or a media-readiness event barrier.
+        const playback = selectedEngine.speak(message, options, {
+          onEnd,
+          onError,
+        });
+        if (playback) void Promise.resolve(playback).catch(failedToStart);
+      } catch {
+        failedToStart();
       }
     },
-    [supported],
+    [selectedEngine, supported],
   );
 
-  return { supported, voices, speaking, error, speak, stop };
+  const retryPlayback = useCallback(() => {
+    if (!needsPlaybackGesture || !selectedEngine.retryPlayback) return;
+    const request = generation.current;
+    setError(null);
+    setNeedsPlaybackGesture(false);
+    setSpeaking(true);
+    const failed = () => {
+      if (generation.current !== request) return;
+      setSpeaking(false);
+      setError(
+        "Não foi possível reproduzir o áudio. Selecione o símbolo novamente.",
+      );
+    };
+    try {
+      // Replay the already generated MP3 during this new user gesture; no fetch.
+      const playback = selectedEngine.retryPlayback();
+      if (playback) void Promise.resolve(playback).catch(failed);
+    } catch {
+      failed();
+    }
+  }, [needsPlaybackGesture, selectedEngine]);
+
+  return {
+    supported,
+    voices,
+    speaking,
+    error,
+    speak,
+    stop,
+    needsPlaybackGesture,
+    retryPlayback,
+    prefetch,
+    prepareSentence,
+  };
 }

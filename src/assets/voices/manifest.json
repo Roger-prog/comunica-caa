@@ -1,0 +1,250 @@
+{
+  "format": "audio/mpeg",
+  "sample_rate": 24000,
+  "voices": {
+    "francisca": "pt-BR-FranciscaNeural",
+    "antonio": "pt-BR-AntonioNeural"
+  },
+  "clips": [
+    {
+      "file": "src/assets/voices/antonio/agua.mp3",
+      "bytes": 10700,
+      "sha256": "7b003a3cb1c6eaafdfd5bba9d96e361dbf0785394834d88457bb6f7925afd1a9"
+    },
+    {
+      "file": "src/assets/voices/antonio/ajuda.mp3",
+      "bytes": 10556,
+      "sha256": "2717c227438fd00c62d7568010e36487ba326702a10b1fed386ed9bd25bde40a"
+    },
+    {
+      "file": "src/assets/voices/antonio/amigos.mp3",
+      "bytes": 10700,
+      "sha256": "5c89f11fb33f15d4d14ecb886494bafc7ee0574f99d2ea2368ece3e6a90ab73a"
+    },
+    {
+      "file": "src/assets/voices/antonio/banheiro.mp3",
+      "bytes": 10700,
+      "sha256": "b2f7c10786c3ffe25540a5e12c7446f19d52326353f2f2334c4f748cc3ab0ad0"
+    },
+    {
+      "file": "src/assets/voices/antonio/brincar.mp3",
+      "bytes": 10700,
+      "sha256": "7257c57072a11363384ebd195d87d0538739708a11ded9ba22cb21665fab1c3c"
+    },
+    {
+      "file": "src/assets/voices/antonio/carinho.mp3",
+      "bytes": 10556,
+      "sha256": "e265353789d0040923deab8dafd49d5f8a3d03681f9ae39ab20dc8b256c846b1"
+    },
+    {
+      "file": "src/assets/voices/antonio/casa.mp3",
+      "bytes": 10556,
+      "sha256": "7c7ba824c736f5d0ab525d965103d2ec8264b918a5e5cd51713e412b1e26f9c8"
+    },
+    {
+      "file": "src/assets/voices/antonio/comer.mp3",
+      "bytes": 10556,
+      "sha256": "72aebd12b195170ae939611cee2d06f87a2e9c2f23523bc8c0b017ba3b2b10de"
+    },
+    {
+      "file": "src/assets/voices/antonio/descansar.mp3",
+      "bytes": 10700,
+      "sha256": "5f0d62a87d8dddf9cf5c6714ee769465f88cecfc204064ba8781515164003d72"
+    },
+    {
+      "file": "src/assets/voices/antonio/desenhar.mp3",
+      "bytes": 10700,
+      "sha256": "f637984de241cf83bfda0ef6c5a6c60fc0c8e6315bac0601be4082051f9c35dc"
+    },
+    {
+      "file": "src/assets/voices/antonio/dor.mp3",
+      "bytes": 10700,
+      "sha256": "a9104542b8d5626eb8a9bf7dc3edd57e32f8e293117ba255ec75941ae086bb37"
+    },
+    {
+      "file": "src/assets/voices/antonio/familia.mp3",
+      "bytes": 10412,
+      "sha256": "5b300f5b6bc53ecf0356e4082855e4477a62fa691fde0dd15cdf59eab5144ffe"
+    },
+    {
+      "file": "src/assets/voices/antonio/feliz.mp3",
+      "bytes": 10412,
+      "sha256": "1d4231674a8216cd37a660ad2029d1e29a0c40c548da368dae20a7b06afbc713"
+    },
+    {
+      "file": "src/assets/voices/antonio/ler.mp3",
+      "bytes": 10700,
+      "sha256": "3cf660034e391ad8a1e914fc5e4d4f7924973af22a336b0e67c08f75e54f0090"
+    },
+    {
+      "file": "src/assets/voices/antonio/mae.mp3",
+      "bytes": 10700,
+      "sha256": "1d27b9998b5bf284eeda09ce09dc23b3ef96c9af5daee21fb62a7bcc19d7417a"
+    },
+    {
+      "file": "src/assets/voices/antonio/mais.mp3",
+      "bytes": 10556,
+      "sha256": "3c080498817e5794a537bee40fdbde98281d536ad0e76571fb3c6bcd6e3724d3"
+    },
+    {
+      "file": "src/assets/voices/antonio/musica.mp3",
+      "bytes": 10700,
+      "sha256": "e09a59d19df77c495c07b9fd5aa6bb33665a628618eee87933e3439b93b8620c"
+    },
+    {
+      "file": "src/assets/voices/antonio/nao.mp3",
+      "bytes": 10700,
+      "sha256": "88916b1d575c161aba85aec1a4d0e348dd98cc41bdffb47782a8f3ac99595f93"
+    },
+    {
+      "file": "src/assets/voices/antonio/ola.mp3",
+      "bytes": 10700,
+      "sha256": "34d9ee5ebb046373407318d0ca8a7716022dc24efc34ce9a005f37aa5a7fb208"
+    },
+    {
+      "file": "src/assets/voices/antonio/pai.mp3",
+      "bytes": 10556,
+      "sha256": "2755ee08637fb408d876fecb28f64ff96d401c6de92f13093b6b757a6054c768"
+    },
+    {
+      "file": "src/assets/voices/antonio/parque.mp3",
+      "bytes": 10556,
+      "sha256": "a45b0d05c0ee4489360587d20cbe02a470fd830c05401828f862db5db2db964e"
+    },
+    {
+      "file": "src/assets/voices/antonio/pausa.mp3",
+      "bytes": 10556,
+      "sha256": "91a18757c301088f263f527cf0edcbdfa2c4f3facc80c3bddb4ac5ecd34fc0cf"
+    },
+    {
+      "file": "src/assets/voices/antonio/sim.mp3",
+      "bytes": 10556,
+      "sha256": "7c055b8fe26178f6c688471282f250de7e9eef71ed400449d1efe8bbf782fb5b"
+    },
+    {
+      "file": "src/assets/voices/antonio/triste.mp3",
+      "bytes": 10556,
+      "sha256": "c778edc4b412696e17b18d3efd707eb58fcf47fa5c28cd27caf7923d291660a5"
+    },
+    {
+      "file": "src/assets/voices/francisca/agua.mp3",
+      "bytes": 10700,
+      "sha256": "50bb7cf16123be9b764928a005f3d8d502c6b042565dc2483c68148f7829f44c"
+    },
+    {
+      "file": "src/assets/voices/francisca/ajuda.mp3",
+      "bytes": 10700,
+      "sha256": "1c2daad8ca76ebfb311cbdaa93cc2a1a67348e5e1421f2459a67d4845251ce1c"
+    },
+    {
+      "file": "src/assets/voices/francisca/amigos.mp3",
+      "bytes": 10700,
+      "sha256": "98646bf22cd92941b86d9517215dac1b9a5b62783c98f7b895a504bcb32c9f76"
+    },
+    {
+      "file": "src/assets/voices/francisca/banheiro.mp3",
+      "bytes": 10700,
+      "sha256": "ab14fb201a48e485d266b137d34e4f43bc2f4a3fb5273d7f0125196d23f85bd0"
+    },
+    {
+      "file": "src/assets/voices/francisca/brincar.mp3",
+      "bytes": 10700,
+      "sha256": "355d9ebf8d0f7ff6d448261c48645b6e0ab16d17b576fdd0b144a640a02d67ce"
+    },
+    {
+      "file": "src/assets/voices/francisca/carinho.mp3",
+      "bytes": 10556,
+      "sha256": "e0221d39db5f2429b2bf938b717b89a7b712defd3768f89230829d07a06fb429"
+    },
+    {
+      "file": "src/assets/voices/francisca/casa.mp3",
+      "bytes": 10700,
+      "sha256": "3a648ee55a7cce5ffde808c22bea6bb1fadbfc1ae450afd1102afb2b0c63d7cd"
+    },
+    {
+      "file": "src/assets/voices/francisca/comer.mp3",
+      "bytes": 10556,
+      "sha256": "d078e020fc1518ee2aa1d26b2e62a3a1898e7abb5aa9efd7be4a7127d6109830"
+    },
+    {
+      "file": "src/assets/voices/francisca/descansar.mp3",
+      "bytes": 10700,
+      "sha256": "033b0939e19ca0a9028fc349ac753a66478c66bc55cc3ba409f82515c95e3476"
+    },
+    {
+      "file": "src/assets/voices/francisca/desenhar.mp3",
+      "bytes": 10700,
+      "sha256": "ba52360600ee5023dfbdeed78ba835d638584b9e40c157bdfde12a1fe9e36963"
+    },
+    {
+      "file": "src/assets/voices/francisca/dor.mp3",
+      "bytes": 10700,
+      "sha256": "2ecad7a29bb563b4ce86018ac1b101f98b5ca3cc05872c8b2b8892e7e91287f4"
+    },
+    {
+      "file": "src/assets/voices/francisca/familia.mp3",
+      "bytes": 10556,
+      "sha256": "fd55ec9ca425b19cb14de52a761a015f948fb8abb77ecfcf31fc28ec90220e49"
+    },
+    {
+      "file": "src/assets/voices/francisca/feliz.mp3",
+      "bytes": 10556,
+      "sha256": "24d3c587b6d02ebb973bfc8a2156494f6cf819145b5ebf1f7f0696a82456c5ce"
+    },
+    {
+      "file": "src/assets/voices/francisca/ler.mp3",
+      "bytes": 10700,
+      "sha256": "cf2a9cb4e85b83dfce061bf7b1555899afa53738c5118b8c00220bff734d327f"
+    },
+    {
+      "file": "src/assets/voices/francisca/mae.mp3",
+      "bytes": 10700,
+      "sha256": "b825bacb0aefc91c7d95ba2777472e1f71a89b30eb76c2cb5af409ddfb919992"
+    },
+    {
+      "file": "src/assets/voices/francisca/mais.mp3",
+      "bytes": 10700,
+      "sha256": "c95dee876c2f32d6dbee717476213215e9948730ff383fc338a05aca2b6c9c17"
+    },
+    {
+      "file": "src/assets/voices/francisca/musica.mp3",
+      "bytes": 10700,
+      "sha256": "ac2897a81d343a76c00658cc3811615ea336bf268e953ea645cd48f81cac60b8"
+    },
+    {
+      "file": "src/assets/voices/francisca/nao.mp3",
+      "bytes": 10700,
+      "sha256": "9e38b16fae4af3c8b8ccf8c579562fde72098c0cc3f586c80f53db08114aeed6"
+    },
+    {
+      "file": "src/assets/voices/francisca/ola.mp3",
+      "bytes": 10556,
+      "sha256": "c577128a6a8a81c81e6748cd6126ee536cbe00745df0f4508955dde4374c9232"
+    },
+    {
+      "file": "src/assets/voices/francisca/pai.mp3",
+      "bytes": 10556,
+      "sha256": "87217b68adc479c8ba64df993624b18dc952b3f870bab4ced54553cc1fedc4e8"
+    },
+    {
+      "file": "src/assets/voices/francisca/parque.mp3",
+      "bytes": 10556,
+      "sha256": "ac283c85ed93fd9b23820af3bf66bd55f178fe96dfd1d4437494a359b65e4963"
+    },
+    {
+      "file": "src/assets/voices/francisca/pausa.mp3",
+      "bytes": 10556,
+      "sha256": "e15ba95cc73f40a5aa53a1c2e1cd9ecf62d29da265ee5031f5712395f51d1811"
+    },
+    {
+      "file": "src/assets/voices/francisca/sim.mp3",
+      "bytes": 10556,
+      "sha256": "5d43b9e603d10ca553035da6c6bbbd363be5320f5fe4f59b0df66b5e36d3b733"
+    },
+    {
+      "file": "src/assets/voices/francisca/triste.mp3",
+      "bytes": 10556,
+      "sha256": "072dd5bd8c4bcc1bb039638b193eb6d69d4785d8c7b1eb3ce00a84c7aafd90f6"
+    }
+  ]
+}

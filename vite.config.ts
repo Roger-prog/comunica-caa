@@ -4,6 +4,12 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { port: 5173, strictPort: true },
+  server: {
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      "/api/tts": { target: "http://127.0.0.1:8000", changeOrigin: true },
+    },
+  },
   preview: { port: 4173, strictPort: true },
 });

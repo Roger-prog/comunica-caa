@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   MessageCircle,
+  LockKeyhole,
   Search,
   Square,
   Volume2,
@@ -16,6 +17,8 @@ interface CommunicationBoardProps {
   voiceURI: string;
   rate: number;
   largeCards: boolean;
+  isChildMode?: boolean;
+  onUnlockRequest?: () => void;
 }
 
 function normalize(text: string) {
@@ -31,6 +34,8 @@ export function CommunicationBoard({
   voiceURI,
   rate,
   largeCards,
+  isChildMode = false,
+  onUnlockRequest,
 }: CommunicationBoardProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
@@ -38,13 +43,30 @@ export function CommunicationBoard({
   const [lastSelected, setLastSelected] = useState<string | null>(null);
   const filtered = useMemo(
     () =>
-      PICTOGRAMS.filter(
-        (item) =>
-          (category === "Todos" || item.category === category) &&
-          normalize(item.label).includes(normalize(query.trim())),
-      ),
-    [category, query],
+      isChildMode
+        ? PICTOGRAMS
+        : PICTOGRAMS.filter(
+            (item) =>
+              (category === "Todos" || item.category === category) &&
+              normalize(item.label).includes(normalize(query.trim())),
+          ),
+    [category, query, isChildMode],
   );
+  const sentenceLabels = useMemo(
+    () => sentence.map((item) => item.label),
+    [sentence],
+  );
+  const { prefetch, prepareSentence } = speech;
+
+  useEffect(
+    () => prefetch(filtered.map((item) => item.label), { voiceURI, rate }),
+    [filtered, prefetch, voiceURI, rate],
+  );
+
+  useEffect(() => {
+    if (!sentenceLabels.length) return;
+    return prepareSentence(sentenceLabels, { voiceURI, rate });
+  }, [sentenceLabels, prepareSentence, voiceURI, rate]);
 
   function select(pictogram: Pictogram) {
     // Do not await persistence before speak(): mobile browsers require a user gesture.
@@ -55,9 +77,22 @@ export function CommunicationBoard({
   }
 
   return (
-    <div className="space-y-6">
-      <section className="surface p-5 sm:p-6" aria-labelledby="sentence-title">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className={isChildMode ? "space-y-4" : "space-y-6"}>
+      <section
+        className={
+          isChildMode
+            ? "surface sticky top-3 z-10 p-3 shadow-sm sm:p-4"
+            : "surface p-5 sm:p-6"
+        }
+        aria-labelledby="sentence-title"
+      >
+        <div
+          className={
+            isChildMode
+              ? "sr-only"
+              : "mb-4 flex flex-wrap items-center justify-between gap-3"
+          }
+        >
           <div className="flex items-center gap-2 text-[#6c48a0]">
             <MessageCircle size={19} aria-hidden="true" />
             <h2 id="sentence-title" className="text-sm font-semibold">
@@ -75,7 +110,10 @@ export function CommunicationBoard({
                 key={`${item.id}-${index}`}
                 className="inline-flex items-center gap-2 rounded-xl border border-[#e7dfef] bg-white px-3 py-2 text-sm font-medium"
               >
-                <span aria-hidden="true" className="text-2xl">
+                <span
+                  aria-hidden="true"
+                  className={isChildMode ? "text-3xl" : "text-2xl"}
+                >
                   {item.symbol}
                 </span>
                 {item.label}
@@ -83,7 +121,9 @@ export function CommunicationBoard({
             ))
           ) : (
             <p className="px-1 text-sm text-stone-500">
-              Toque em um símbolo para dar voz ao que você quer dizer.
+              {isChildMode
+                ? "Toque em um símbolo."
+                : "Toque em um símbolo para dar voz ao que você quer dizer."}
             </p>
           )}
         </div>
@@ -93,9 +133,10 @@ export function CommunicationBoard({
             className="button-primary min-h-12"
             disabled={!sentence.length || !speech.supported}
             onClick={() =>
-              speech.speak(sentence.map((item) => item.label).join(" "), {
+              speech.speak(sentenceLabels.join(" "), {
                 voiceURI,
                 rate,
+                segments: sentenceLabels,
               })
             }
           >
@@ -122,6 +163,26 @@ export function CommunicationBoard({
               <Square size={15} aria-hidden="true" /> Parar áudio
             </button>
           )}
+          {speech.needsPlaybackGesture && (
+            <button
+              type="button"
+              className="button-primary min-h-12"
+              onClick={speech.retryPlayback}
+            >
+              <Volume2 size={18} aria-hidden="true" />
+              Ouvir áudio pronto
+            </button>
+          )}
+          {isChildMode && (
+            <button
+              type="button"
+              onClick={onUnlockRequest}
+              aria-label="Desbloquear modo criança"
+              className="ml-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-stone-500 hover:bg-stone-100 hover:text-brand-600"
+            >
+              <LockKeyhole size={20} aria-hidden="true" />
+            </button>
+          )}
         </div>
         {!speech.supported && (
           <p className="mt-3 text-sm text-stone-600">
@@ -139,56 +200,62 @@ export function CommunicationBoard({
         )}
       </section>
 
-      <section aria-labelledby="symbols-title">
-        <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h2
-              id="symbols-title"
-              className="text-xl font-semibold tracking-tight"
-            >
-              Sua prancha, suas palavras
-            </h2>
-            <p className="mt-1 text-sm text-stone-500">
-              Escolha um símbolo. Cada expressão importa.
-            </p>
-          </div>
-          <div className="relative sm:w-64">
-            <Search
-              size={18}
-              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
-              aria-hidden="true"
-            />
-            <label htmlFor="symbol-search" className="sr-only">
-              Buscar símbolo
-            </label>
-            <input
-              id="symbol-search"
-              type="search"
-              className="input-field min-h-12 pl-11"
-              placeholder="Buscar símbolo…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-        </div>
+      <section
+        aria-labelledby={isChildMode ? undefined : "symbols-title"}
+        aria-label={isChildMode ? "Símbolos de comunicação" : undefined}
+      >
+        {!isChildMode && (
+          <>
+            <div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div>
+                <h2
+                  id="symbols-title"
+                  className="text-xl font-semibold tracking-tight"
+                >
+                  Sua prancha, suas palavras
+                </h2>
+                <p className="mt-1 text-sm text-stone-500">
+                  Escolha um símbolo. Cada expressão importa.
+                </p>
+              </div>
+              <div className="relative sm:w-64">
+                <Search
+                  size={18}
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                  aria-hidden="true"
+                />
+                <label htmlFor="symbol-search" className="sr-only">
+                  Buscar símbolo
+                </label>
+                <input
+                  id="symbol-search"
+                  type="search"
+                  className="input-field min-h-12 pl-11"
+                  placeholder="Buscar símbolo…"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </div>
+            </div>
 
-        <div
-          className="mb-5 flex flex-wrap gap-2"
-          aria-label="Filtrar símbolos por categoria"
-        >
-          {["Todos", ...CATEGORIES].map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={category === item}
-              onClick={() => setCategory(item)}
-              className={`min-h-12 rounded-full border px-4 text-sm font-medium transition-colors ${category === item ? "border-[#6c48a0] bg-[#6c48a0] text-white" : "border-[#e7e1eb] bg-white text-stone-600 hover:border-[#6c48a0] hover:text-[#6c48a0]"}`}
+            <div
+              className="mb-5 flex flex-wrap gap-2"
+              aria-label="Filtrar símbolos por categoria"
             >
-              {item}
-            </button>
-          ))}
-        </div>
-
+              {["Todos", ...CATEGORIES].map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  aria-pressed={category === item}
+                  onClick={() => setCategory(item)}
+                  className={`min-h-12 rounded-full border px-4 text-sm font-medium transition-colors ${category === item ? "border-[#6c48a0] bg-[#6c48a0] text-white" : "border-[#e7e1eb] bg-white text-stone-600 hover:border-[#6c48a0] hover:text-[#6c48a0]"}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         <div
           className={`grid gap-3 sm:gap-4 ${largeCards ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"}`}
         >
@@ -199,7 +266,7 @@ export function CommunicationBoard({
               aria-label={`Falar ${item.label}`}
               aria-pressed={lastSelected === item.id}
               onClick={() => select(item)}
-              className={`group relative flex min-h-40 flex-col items-center justify-center gap-3 rounded-3xl border-2 bg-white p-4 transition duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 motion-reduce:transform-none ${largeCards ? "sm:min-h-52" : ""} ${lastSelected === item.id ? "border-[#6c48a0] shadow-sm" : "border-transparent hover:border-[#d7c7e7]"}`}
+              className={`group relative flex min-h-40 flex-col items-center justify-center gap-3 rounded-3xl border-2 bg-white p-4 transition duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:bg-purple-200 active:scale-95 active:duration-0 motion-reduce:transform-none motion-reduce:active:scale-100 ${largeCards ? "sm:min-h-52" : ""} ${lastSelected === item.id ? "border-[#6c48a0] shadow-sm" : "border-transparent hover:border-[#d7c7e7]"}`}
             >
               <span
                 className={`${largeCards ? "h-24 w-24 text-6xl" : "h-20 w-20 text-5xl"} flex items-center justify-center rounded-2xl`}
@@ -213,11 +280,13 @@ export function CommunicationBoard({
               >
                 {item.label}
               </span>
-              <Volume2
-                size={13}
-                aria-hidden="true"
-                className="absolute right-3 top-3 text-[#b5a5c4]"
-              />
+              {!isChildMode && (
+                <Volume2
+                  size={13}
+                  aria-hidden="true"
+                  className="absolute right-3 top-3 text-[#b5a5c4]"
+                />
+              )}
             </button>
           ))}
         </div>

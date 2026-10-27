@@ -33,3 +33,19 @@ verificacao*.json
 /android/
 /ios/
 /web/
+
+# Python runtime and test artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.mp3
+*.wav
+
+# Public neural vocabulary generated from the built-in pictogram labels only
+!src/assets/voices/**/*.mp3
+
+# Keep public Markdown documentation limited to README files
+*.md
+!README.md
