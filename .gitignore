@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-demo/
 coverage/
 .env
 .env.*
@@ -42,6 +43,7 @@ __pycache__/
 .pytest_cache/
 *.mp3
 *.wav
+*.pdf
 
 # Public neural vocabulary generated from the built-in pictogram labels only
 !src/assets/voices/**/*.mp3

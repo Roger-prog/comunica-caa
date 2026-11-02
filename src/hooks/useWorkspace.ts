@@ -32,14 +32,18 @@ function dataError(): string {
 }
 
 // App remounts this workspace whenever the authenticated user or mode changes.
-export function useWorkspace(user: User | null, preview: boolean) {
+export function useWorkspace(
+  user: User | null,
+  preview: boolean,
+  enabled = true,
+) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [children, setChildren] = useState<Crianca[]>(
     preview ? [demoChild] : [],
   );
   const [selectedId, setSelectedId] = useState(preview ? demoChild.id : "");
   const [byChild, setByChild] = useState<Record<string, Comunicacao[]>>({});
-  const [loading, setLoading] = useState(!preview);
+  const [loading, setLoading] = useState(!preview && enabled);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -47,7 +51,7 @@ export function useWorkspace(user: User | null, preview: boolean) {
   const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
-    if (preview || !supabase || !user) return;
+    if (!enabled || preview || !supabase || !user) return;
     const client = supabase;
     const controller = new AbortController();
     let active = true;
@@ -55,7 +59,7 @@ export function useWorkspace(user: User | null, preview: boolean) {
     setError(null);
     void Promise.all([
       client
-        .from("profiles")
+        .from("caa_profiles")
         .select("*")
         .eq("id", user.id)
         .abortSignal(controller.signal)
@@ -88,10 +92,10 @@ export function useWorkspace(user: User | null, preview: boolean) {
       active = false;
       controller.abort();
     };
-  }, [user?.id, preview, reloadVersion]);
+  }, [user?.id, preview, enabled, reloadVersion]);
 
   useEffect(() => {
-    if (preview || !supabase || !user || !selectedId) return;
+    if (!enabled || preview || !supabase || !user || !selectedId) return;
     const controller = new AbortController();
     let active = true;
     setHistoryLoading(true);
@@ -124,10 +128,14 @@ export function useWorkspace(user: User | null, preview: boolean) {
       active = false;
       controller.abort();
     };
-  }, [user?.id, preview, selectedId, reloadVersion]);
+  }, [user?.id, preview, enabled, selectedId, reloadVersion]);
 
   const addChild = useCallback(
     async (nome: string) => {
+      if (!enabled)
+        throw new Error(
+          "Este tipo de conta não pode criar perfis de crianças.",
+        );
       const name = nome.trim();
       if (!name || name.length > 80)
         throw new Error("Informe um nome com até 80 caracteres.");
@@ -160,12 +168,12 @@ export function useWorkspace(user: User | null, preview: boolean) {
       setSelectedId(child.id);
       return child;
     },
-    [preview, user?.id],
+    [preview, enabled, user?.id],
   );
 
   const record = useCallback(
     (pictogram: Pictogram) => {
-      if (!selectedId) return;
+      if (!enabled || !selectedId) return;
       const id = crypto.randomUUID();
       if (preview) {
         const event: Comunicacao = {
@@ -213,7 +221,7 @@ export function useWorkspace(user: User | null, preview: boolean) {
         )
         .finally(() => setPendingWrites((count) => count - 1));
     },
-    [selectedId, preview, user?.id],
+    [selectedId, enabled, preview, user?.id],
   );
 
   const selectedChild = useMemo(

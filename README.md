@@ -22,7 +22,11 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 
 ## Perfis e acompanhamento
 
-- Cadastro e autenticação de usuários.
+- Cadastro com escolha entre Responsável e Fonoaudiólogo.
+- Acesso por e-mail e senha ou conta Google.
+- Confirmação de e-mail e recuperação de senha por link.
+- Conclusão do perfil no primeiro acesso pelo Google.
+- Painéis e navegação de acordo com o tipo de conta.
 - Perfis individuais de crianças vinculados ao usuário.
 - Registro das seleções e histórico de comunicação por perfil.
 - Indicadores de utilização em períodos de 7 ou 30 dias.
@@ -35,9 +39,26 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Saída protegida por PIN definido pelo responsável para a sessão.
 - Ativação de tela cheia em navegadores compatíveis.
 
+## Acompanhamento profissional
+
+- Convites individuais com código de seis dígitos, uso único e validade de 24 horas.
+- Preparação de e-mail com o convite para revisão e envio pelo responsável.
+- Painel do fonoaudiólogo com os pacientes vinculados e acesso de consulta ao histórico.
+- Seleção de período, paginação dos registros e exportação de relatórios em PDF.
+- Relatórios com identificação do paciente, indicadores de uso, tabela de comunicações e paginação.
+- Consulta e remoção dos vínculos pelo responsável.
+
 ## Acessibilidade e personalização
 
 - Interface responsiva para computador, tablet e celular.
 - Cartões ampliados, rótulos textuais e navegação por teclado.
 - Preferências de voz, velocidade e tamanho dos cartões salvas no navegador.
 - Demonstração interativa sem cadastro, com registros temporários durante a sessão.
+
+## Acesso de demonstração
+
+- Login simulado com um usuário fictício e campos de acesso opcionais.
+- Sessão mantida ao atualizar a página na mesma aba do navegador.
+- Navegação entre a prancha, evolução, histórico, ajustes e painel profissional.
+- Saída da conta com encerramento da sessão de demonstração e retorno ao login.
+- Perfis e comunicações de exemplo para explorar as funcionalidades.

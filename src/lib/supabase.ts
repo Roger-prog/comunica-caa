@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
+import { isMockAuthMode } from "../auth/authMode";
+import { assertPasswordUpdateToken } from "../auth/passwordMutation";
 
 const url = import.meta.env.VITE_SUPABASE_URL?.trim() ?? "";
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
@@ -26,9 +28,12 @@ function validateConfiguration(): string | null {
   return null;
 }
 
-export const configurationError = validateConfiguration();
+export const configurationError = isMockAuthMode()
+  ? null
+  : validateConfiguration();
 
 async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
+  assertPasswordUpdateToken(input, init);
   const controller = new AbortController();
   const parentSignal = init?.signal;
   const forwardAbort = () => controller.abort();
@@ -43,15 +48,16 @@ async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
   }
 }
 
-export const supabase = configurationError
-  ? null
-  : createClient<Database>(url, key, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: "pkce",
-        storageKey: "comunica-react-auth",
-      },
-      global: { fetch: fetchWithTimeout },
-    });
+export const supabase =
+  isMockAuthMode() || configurationError
+    ? null
+    : createClient<Database>(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: "pkce",
+          storageKey: "comunica-react-auth",
+        },
+        global: { fetch: fetchWithTimeout },
+      });

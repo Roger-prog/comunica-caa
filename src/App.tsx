@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -15,18 +15,53 @@ import {
   ShieldCheck,
   Volume2,
   X,
+  Stethoscope,
 } from "lucide-react";
 import { AuthPage } from "./auth/AuthPage";
+import { Cadastro } from "./auth/Cadastro";
+import { EsqueciSenha } from "./auth/EsqueciSenha";
+import { RedefinirSenha } from "./auth/RedefinirSenha";
+import { CompletarPerfil } from "./auth/CompletarPerfil";
+import { AuthCallback } from "./auth/AuthCallback";
+import { EmailConfirmation } from "./auth/EmailConfirmation";
+import {
+  homeForRole,
+  loginDestination,
+  rolesForPath,
+} from "./auth/authRouting";
 import { useAuth } from "./auth/AuthProvider";
+import { PrivateRoute } from "./auth/PrivateRoute";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { CommunicationBoard } from "./components/CommunicationBoard";
 import { ChildModePinDialog } from "./components/ChildModePinDialog";
 import { Evolution, History } from "./components/ActivityViews";
 import { useSpeech } from "./hooks/useSpeech";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useChildMode } from "./hooks/useChildMode";
+import { PatientInvitation } from "./components/PatientInvitation";
 
-type View = "board" | "evolution" | "history" | "settings";
+const ProfessionalDashboard = lazy(() =>
+  import("./components/ProfessionalDashboard").then((module) => ({
+    default: module.ProfessionalDashboard,
+  })),
+);
+
+type View = "board" | "evolution" | "history" | "settings" | "professional";
+const viewPaths: Record<View, string> = {
+  board: "/prancha",
+  evolution: "/evolucao",
+  history: "/historico",
+  settings: "/ajustes",
+  professional: "/profissional",
+};
 type Preferences = { voiceURI: string; rate: number; largeCards: boolean };
+type ChildModeState = ReturnType<typeof useChildMode>;
 const navigation = [
   {
     id: "board" as const,
@@ -56,6 +91,14 @@ const navigation = [
     title: "Do seu jeito",
     description: "Escolha a voz e o tamanho dos símbolos.",
   },
+  {
+    id: "professional" as const,
+    label: "Profissional",
+    Icon: Stethoscope,
+    title: "Acompanhamento fonoaudiológico",
+    description:
+      "Vincule pacientes por convite, consulte o histórico e exporte relatórios.",
+  },
 ];
 
 function readPreferences(): Preferences {
@@ -80,42 +123,179 @@ function readPreferences(): Preferences {
 }
 
 export function App() {
-  const { session, loading } = useAuth();
-  const [preview, setPreview] = useState(false);
-  if (loading)
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center gap-3 text-brand-600"
-        role="status"
-      >
-        <LoaderCircle size={24} className="animate-spin" aria-hidden="true" />
-        Restaurando sua sessão…
-      </div>
-    );
-  if (!session && !preview)
-    return <AuthPage onPreview={() => setPreview(true)} />;
+  const { user, session, isMock } = useAuth();
+  return <AppRoutes key={(isMock ? user?.id : session?.user.id) ?? "public"} />;
+}
+
+function SessionPending() {
   return (
-    <Workspace
-      key={session?.user.id ?? "preview"}
-      preview={!session}
-      onExitPreview={() => setPreview(false)}
+    <div
+      role="status"
+      className="flex min-h-dvh items-center justify-center gap-3 text-brand-600"
+    >
+      <LoaderCircle className="animate-spin" size={24} aria-hidden="true" />
+      Restaurando sua sessão…
+    </div>
+  );
+}
+
+function HomeRedirect() {
+  const { user, loading, isRecovery } = useAuth();
+  if (loading) return <SessionPending />;
+  return (
+    <Navigate
+      to={
+        isRecovery
+          ? "/redefinir-senha"
+          : !user
+            ? "/login"
+            : !user.emailConfirmed
+              ? "/confirmar-email"
+              : homeForRole(user.role)
+      }
+      replace
     />
   );
 }
 
+function AppRoutes() {
+  const { user, session, isMock, loading } = useAuth();
+  const childModeState = useChildMode();
+  const location = useLocation();
+  const routeTo = useNavigate();
+  const authenticatedIdentity = isMock ? Boolean(user) : Boolean(session);
+  const lockedPath = authenticatedIdentity
+    ? "/prancha"
+    : "/demonstracao/prancha";
+  // A child lock must never override a lost session or a changed account role.
+  const canKeepChildLock =
+    !authenticatedIdentity ||
+    isMock ||
+    loading ||
+    Boolean(user?.emailConfirmed && user.role === "responsavel");
+  const childMode = {
+    ...childModeState,
+    isChildMode: childModeState.isChildMode && canKeepChildLock,
+  };
+
+  useEffect(() => {
+    if (childMode.isChildMode && location.pathname !== lockedPath) {
+      routeTo(lockedPath, { replace: true });
+    }
+  }, [childMode.isChildMode, location.pathname, lockedPath, routeTo]);
+
+  return (
+    <Routes location={childMode.isChildMode ? lockedPath : location}>
+      <Route path="/" element={<HomeRedirect />} />
+      <Route path="/login" element={<LoginRoute />} />
+      <Route path="/cadastro" element={<LoginRoute registering />} />
+      <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+      <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/confirmar-email" element={<EmailConfirmation />} />
+      <Route path="/completar-perfil" element={<OnboardingRoute />} />
+      <Route
+        path="/demonstracao/*"
+        element={<PublicPreviewRoute childMode={childMode} />}
+      />
+      <Route element={<PrivateRoute />}>
+        <Route path="/*" element={<DashboardRoute childMode={childMode} />} />
+      </Route>
+    </Routes>
+  );
+}
+
+function LoginRoute({ registering = false }: { registering?: boolean }) {
+  const { user, loading, isRecovery, isMock } = useAuth();
+  const location = useLocation();
+  const routeTo = useNavigate();
+  const from: unknown = (location.state as { from?: unknown } | null)?.from;
+  if (loading) return <SessionPending />;
+  if (isRecovery) return <Navigate to="/redefinir-senha" replace />;
+  if (user && !user.emailConfirmed)
+    return <Navigate to="/confirmar-email" replace />;
+  if (user)
+    return <Navigate to={loginDestination(from, user.role, isMock)} replace />;
+  if (registering) return <Cadastro />;
+  return <AuthPage onPreview={() => routeTo("/demonstracao/prancha")} />;
+}
+
+function OnboardingRoute() {
+  const { user, loading, isRecovery } = useAuth();
+  if (loading) return <SessionPending />;
+  if (isRecovery) return <Navigate to="/redefinir-senha" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.emailConfirmed) return <Navigate to="/confirmar-email" replace />;
+  if (user.role) return <Navigate to={homeForRole(user.role)} replace />;
+  return <CompletarPerfil />;
+}
+
+function DashboardRoute({ childMode }: { childMode: ChildModeState }) {
+  const { user } = useAuth();
+  const location = useLocation();
+  const allowed = rolesForPath(location.pathname);
+  if (!allowed) return <Navigate to={homeForRole(user!.role)} replace />;
+  return (
+    <PrivateRoute allowedRoles={allowed}>
+      <AuthenticatedWorkspace childMode={childMode} />
+    </PrivateRoute>
+  );
+}
+
+function AuthenticatedWorkspace({ childMode }: { childMode: ChildModeState }) {
+  const { user, isMock } = useAuth();
+  return (
+    <Workspace
+      key={user!.id}
+      preview={isMock}
+      publicPreview={false}
+      childMode={childMode}
+    />
+  );
+}
+
+function PublicPreviewRoute({ childMode }: { childMode: ChildModeState }) {
+  const { user, loading, isRecovery } = useAuth();
+  if (loading) return <SessionPending />;
+  if (isRecovery) return <Navigate to="/redefinir-senha" replace />;
+  if (user)
+    return (
+      <Navigate
+        to={user.emailConfirmed ? homeForRole(user.role) : "/confirmar-email"}
+        replace
+      />
+    );
+  return <Workspace preview publicPreview childMode={childMode} />;
+}
+
 function Workspace({
   preview,
-  onExitPreview,
+  publicPreview,
+  childMode,
 }: {
   preview: boolean;
-  onExitPreview: () => void;
+  publicPreview: boolean;
+  childMode: ChildModeState;
 }) {
-  const { session, signOut } = useAuth();
-  const workspace = useWorkspace(session?.user ?? null, preview);
+  const { user, session, signOut } = useAuth();
+  const routeTo = useNavigate();
+  const location = useLocation();
+  const routePrefix = publicPreview ? "/demonstracao" : "";
+  const canManageChildren = preview || user?.role === "responsavel";
+  const workspace = useWorkspace(
+    canManageChildren ? (session?.user ?? null) : null,
+    preview,
+    canManageChildren,
+  );
   const speech = useSpeech();
-  const childMode = useChildMode();
   const { isChildMode } = childMode;
-  const [view, setView] = useState<View>("board");
+  const requestedPath = location.pathname
+    .slice(routePrefix.length)
+    .replace(/\/$/, "");
+  const requestedView = (Object.keys(viewPaths) as View[]).find(
+    (key) => viewPaths[key] === requestedPath,
+  );
+  const view: View = isChildMode ? "board" : (requestedView ?? "board");
   const [preferences, setPreferences] = useState(readPreferences);
   const [showChildForm, setShowChildForm] = useState(false);
   const [childName, setChildName] = useState("");
@@ -124,9 +304,15 @@ function Workspace({
   const [leaving, setLeaving] = useState(false);
   const [exitError, setExitError] = useState<string | null>(null);
   const active = navigation.find((item) => item.id === view)!;
-  const displayName = preview
+  const displayName = publicPreview
     ? "Modo demonstração"
-    : (workspace.profile?.nome ?? "Minha conta");
+    : (workspace.profile?.nome ?? user?.name ?? "Minha conta");
+
+  useEffect(() => {
+    if (!requestedView || (isChildMode && requestedView !== "board")) {
+      routeTo(`${routePrefix}/prancha`, { replace: true });
+    }
+  }, [requestedView, isChildMode, routePrefix, routeTo]);
 
   useEffect(() => {
     document.getElementById("main-content")?.focus({ preventScroll: true });
@@ -148,13 +334,13 @@ function Workspace({
   function navigate(next: View) {
     if (isChildMode) return;
     speech.stop();
-    setView(next);
+    routeTo(`${routePrefix}${viewPaths[next]}`);
   }
 
   function startChildMode() {
     speech.stop();
     setShowChildForm(false);
-    setView("board");
+    routeTo(`${routePrefix}/prancha`, { replace: true });
     childMode.start();
   }
 
@@ -181,14 +367,15 @@ function Workspace({
   async function exit() {
     if (isChildMode) return;
     speech.stop();
-    if (preview) {
-      onExitPreview();
+    if (publicPreview) {
+      routeTo("/login", { replace: true });
       return;
     }
     setLeaving(true);
     setExitError(null);
     try {
       await signOut();
+      routeTo("/login", { replace: true });
     } catch (cause) {
       setExitError(
         cause instanceof Error ? cause.message : "Não foi possível sair.",
@@ -235,27 +422,33 @@ function Workspace({
             <p className="eyebrow mb-4 hidden px-3 lg:block">Meu espaço</p>
             <nav
               aria-label="Navegação principal"
-              className="grid grid-cols-4 gap-1 lg:flex lg:flex-col lg:gap-2"
+              className="grid grid-cols-3 gap-1 sm:grid-cols-5 lg:flex lg:flex-col lg:gap-2"
             >
-              {navigation.map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => navigate(id)}
-                  aria-current={view === id ? "page" : undefined}
-                  className={`flex min-h-14 flex-col items-center justify-center gap-2 rounded-2xl sm:flex-row px-2 py-3 text-xs font-semibold sm:text-sm lg:justify-start lg:gap-3 lg:px-4 ${view === id ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-50"}`}
-                >
-                  <Icon size={20} className="shrink-0" aria-hidden="true" />
-                  <span>{label}</span>
-                  {view === id && (
-                    <ChevronRight
-                      size={16}
-                      className="ml-auto hidden lg:block"
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-              ))}
+              {navigation
+                .filter(
+                  ({ id }) =>
+                    preview ||
+                    rolesForPath(viewPaths[id])?.includes(user!.role!),
+                )
+                .map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => navigate(id)}
+                    aria-current={view === id ? "page" : undefined}
+                    className={`flex min-h-14 flex-col items-center justify-center gap-2 rounded-2xl sm:flex-row px-2 py-3 text-xs font-semibold sm:text-sm lg:justify-start lg:gap-3 lg:px-4 ${view === id ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-50"}`}
+                  >
+                    <Icon size={20} className="shrink-0" aria-hidden="true" />
+                    <span>{label}</span>
+                    {view === id && (
+                      <ChevronRight
+                        size={16}
+                        className="ml-auto hidden lg:block"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                ))}
             </nav>
             <div className="mt-auto hidden lg:block">
               <div className="mb-6 rounded-3xl bg-[#faf8fc] p-4">
@@ -287,7 +480,7 @@ function Workspace({
                   <LogOut size={17} aria-hidden="true" />
                   {leaving
                     ? "Saindo…"
-                    : preview
+                    : publicPreview
                       ? "Voltar ao login"
                       : "Sair da conta"}
                 </button>
@@ -308,48 +501,57 @@ function Workspace({
               <span className="font-medium text-ink">{active.label}</span>
             </span>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <span
-                className="hidden h-10 w-10 items-center justify-center rounded-full sm:flex bg-[#ede6f6] text-sm font-bold text-brand-600"
-                aria-hidden="true"
-              >
-                {(workspace.selectedChild?.nome ?? "C")
-                  .slice(0, 1)
-                  .toLocaleUpperCase("pt-BR")}
-              </span>
-              <label className="sr-only" htmlFor="child-select">
-                Perfil da criança
-              </label>
-              <select
-                id="child-select"
-                className="min-h-12 max-w-36 rounded-xl sm:max-w-52 border border-stone-200 bg-white px-3 text-sm font-medium"
-                value={workspace.selectedId}
-                onChange={(event) => {
-                  speech.stop();
-                  workspace.setSelectedId(event.target.value);
-                }}
-                disabled={!workspace.children.length || workspace.loading}
-              >
-                {!workspace.children.length && (
-                  <option value="">Nenhum perfil</option>
-                )}
-                {workspace.children.map((child) => (
-                  <option key={child.id} value={child.id}>
-                    {child.nome}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="button-secondary min-w-12 px-3"
-                aria-label="Adicionar perfil de criança"
-                onClick={() => setShowChildForm((value) => !value)}
-              >
-                <Plus size={18} aria-hidden="true" />
-              </button>
+              {canManageChildren && view !== "professional" && (
+                <>
+                  <span
+                    className="hidden h-10 w-10 items-center justify-center rounded-full sm:flex bg-[#ede6f6] text-sm font-bold text-brand-600"
+                    aria-hidden="true"
+                  >
+                    {(workspace.selectedChild?.nome ?? "C")
+                      .slice(0, 1)
+                      .toLocaleUpperCase("pt-BR")}
+                  </span>
+                  <label className="sr-only" htmlFor="child-select">
+                    Perfil da criança
+                  </label>
+                  <select
+                    id="child-select"
+                    className="min-h-12 max-w-36 rounded-xl sm:max-w-52 border border-stone-200 bg-white px-3 text-sm font-medium"
+                    value={workspace.selectedId}
+                    onChange={(event) => {
+                      speech.stop();
+                      workspace.setSelectedId(event.target.value);
+                    }}
+                    disabled={!workspace.children.length || workspace.loading}
+                  >
+                    {!workspace.children.length && (
+                      <option value="">Nenhum perfil</option>
+                    )}
+                    {workspace.children.map((child) => (
+                      <option key={child.id} value={child.id}>
+                        {child.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="button-secondary min-w-12 px-3"
+                    aria-label="Adicionar perfil de criança"
+                    onClick={() => setShowChildForm((value) => !value)}
+                  >
+                    <Plus size={18} aria-hidden="true" />
+                  </button>
+                </>
+              )}
+              {view === "professional" && (
+                <span className="text-sm font-medium text-brand-700">
+                  Painel do profissional
+                </span>
+              )}
               <button
                 type="button"
                 className="button-secondary min-w-12 px-3 lg:hidden"
-                aria-label={preview ? "Voltar ao login" : "Sair da conta"}
+                aria-label={publicPreview ? "Voltar ao login" : "Sair da conta"}
                 disabled={leaving || workspace.pendingWrites > 0}
                 onClick={() => void exit()}
               >
@@ -382,7 +584,7 @@ function Workspace({
                     onClick={() => void exit()}
                   >
                     <ArrowLeft size={16} aria-hidden="true" />
-                    Voltar ao login
+                    {publicPreview ? "Voltar ao login" : "Sair da conta"}
                   </button>
                 </div>
               )}
@@ -394,57 +596,61 @@ function Workspace({
                   {active.title}
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-stone-500 sm:text-base">
-                  {active.description}
+                  {!canManageChildren && view === "settings"
+                    ? "Confira os dados da sua conta profissional."
+                    : active.description}
                 </p>
               </div>
-              {showChildForm && (
-                <form
-                  onSubmit={(event) => void addChild(event)}
-                  className="surface mb-6 p-5"
-                >
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <h2 className="font-semibold">Novo perfil de criança</h2>
-                    <button
-                      type="button"
-                      className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-stone-50"
-                      aria-label="Fechar cadastro de perfil"
-                      disabled={addingChild}
-                      onClick={() => setShowChildForm(false)}
-                    >
-                      <X size={20} aria-hidden="true" />
-                    </button>
-                  </div>
-                  <label
-                    htmlFor="child-name"
-                    className="mb-2 block text-sm font-medium"
+              {canManageChildren &&
+                showChildForm &&
+                view !== "professional" && (
+                  <form
+                    onSubmit={(event) => void addChild(event)}
+                    className="surface mb-6 p-5"
                   >
-                    Nome ou apelido
-                  </label>
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <input
-                      id="child-name"
-                      className="input-field"
-                      autoComplete="off"
-                      required
-                      maxLength={80}
-                      value={childName}
-                      onChange={(event) => setChildName(event.target.value)}
-                    />
-                    <button
-                      type="submit"
-                      className="button-primary shrink-0"
-                      disabled={addingChild || workspace.loading}
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <h2 className="font-semibold">Novo perfil de criança</h2>
+                      <button
+                        type="button"
+                        className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-stone-50"
+                        aria-label="Fechar cadastro de perfil"
+                        disabled={addingChild}
+                        onClick={() => setShowChildForm(false)}
+                      >
+                        <X size={20} aria-hidden="true" />
+                      </button>
+                    </div>
+                    <label
+                      htmlFor="child-name"
+                      className="mb-2 block text-sm font-medium"
                     >
-                      {addingChild ? "Salvando…" : "Criar perfil"}
-                    </button>
-                  </div>
-                  {childError && (
-                    <p role="alert" className="mt-3 text-sm text-red-800">
-                      {childError}
-                    </p>
-                  )}
-                </form>
-              )}
+                      Nome ou apelido
+                    </label>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        id="child-name"
+                        className="input-field"
+                        autoComplete="off"
+                        required
+                        maxLength={80}
+                        value={childName}
+                        onChange={(event) => setChildName(event.target.value)}
+                      />
+                      <button
+                        type="submit"
+                        className="button-primary shrink-0"
+                        disabled={addingChild || workspace.loading}
+                      >
+                        {addingChild ? "Salvando…" : "Criar perfil"}
+                      </button>
+                    </div>
+                    {childError && (
+                      <p role="alert" className="mt-3 text-sm text-red-800">
+                        {childError}
+                      </p>
+                    )}
+                  </form>
+                )}
               {workspace.error && (
                 <div
                   role="alert"
@@ -486,6 +692,8 @@ function Workspace({
                 </div>
               )}
               {!preview &&
+                canManageChildren &&
+                view !== "professional" &&
                 !workspace.children.length &&
                 !workspace.loading &&
                 !workspace.error && (
@@ -507,7 +715,7 @@ function Workspace({
                     </button>
                   </div>
                 )}
-              {workspace.loading && (
+              {workspace.loading && view !== "professional" && (
                 <p
                   role="status"
                   className="mb-5 flex items-center gap-2 text-sm text-stone-600"
@@ -573,113 +781,154 @@ function Workspace({
               onBoard={() => navigate("board")}
             />
           )}
+          {view === "professional" && (
+            <Suspense
+              fallback={
+                <p role="status" className="text-sm text-stone-600">
+                  Carregando painel profissional…
+                </p>
+              }
+            >
+              <ProfessionalDashboard
+                userId={session?.user.id ?? null}
+                preview={preview}
+              />
+            </Suspense>
+          )}
           {view === "settings" && (
             <div className="max-w-3xl space-y-6">
-              <section className="surface p-6" aria-labelledby="voice-settings">
-                <h2 id="voice-settings" className="mb-2 text-lg font-semibold">
-                  Voz e leitura
-                </h2>
-                <p className="mb-6 text-sm leading-6 text-stone-500">
-                  Escolha uma voz neural em português do Brasil para a prancha.
-                </p>
-                <label
-                  htmlFor="voice"
-                  className="mb-2 block text-sm font-medium"
-                >
-                  Voz da prancha
-                </label>
-                <select
-                  id="voice"
-                  className="input-field"
-                  value={preferences.voiceURI}
-                  onChange={(event) =>
-                    setPreferences({
-                      ...preferences,
-                      voiceURI: event.target.value,
-                    })
-                  }
-                >
-                  <option value="">Francisca · padrão</option>
-                  {speech.voices.map((voice) => (
-                    <option key={voice.voiceURI} value={voice.voiceURI}>
-                      {voice.name} ({voice.lang})
-                    </option>
-                  ))}
-                </select>
-                <label
-                  htmlFor="rate"
-                  className="mt-6 mb-3 block text-sm font-medium"
-                >
-                  Velocidade da fala: {preferences.rate.toFixed(1)}×
-                </label>
-                <input
-                  id="rate"
-                  className="min-h-12 w-full accent-[#6c48a0]"
-                  type="range"
-                  min="0.5"
-                  max="1.5"
-                  step="0.1"
-                  value={preferences.rate}
-                  onChange={(event) =>
-                    setPreferences({
-                      ...preferences,
-                      rate: Number(event.target.value),
-                    })
-                  }
+              {canManageChildren && (
+                <PatientInvitation
+                  key={workspace.selectedId || "unassigned"}
+                  child={workspace.selectedChild}
+                  preview={preview}
                 />
-                <button
-                  type="button"
-                  className="button-secondary mt-4"
-                  disabled={!speech.supported}
-                  onClick={() =>
-                    speech.speak("Olá! Cada expressão importa.", preferences)
-                  }
-                >
-                  <Volume2 size={18} aria-hidden="true" />
-                  Testar voz
-                </button>
-                {speech.error && (
-                  <p role="alert" className="mt-3 text-sm text-red-800">
-                    {speech.error}
-                  </p>
-                )}
-                {speech.needsPlaybackGesture && (
-                  <button
-                    type="button"
-                    className="button-primary mt-3"
-                    onClick={speech.retryPlayback}
+              )}
+              {canManageChildren && (
+                <>
+                  <section
+                    className="surface p-6"
+                    aria-labelledby="voice-settings"
                   >
-                    <Volume2 size={18} aria-hidden="true" />
-                    Ouvir áudio pronto
-                  </button>
-                )}
-              </section>
-              <section className="surface p-6" aria-labelledby="board-settings">
-                <h2 id="board-settings" className="mb-5 text-lg font-semibold">
-                  Visual da prancha
-                </h2>
-                <label className="flex min-h-12 items-center gap-4">
-                  <input
-                    type="checkbox"
-                    className="h-6 w-6 accent-[#6c48a0]"
-                    checked={preferences.largeCards}
-                    onChange={(event) =>
-                      setPreferences({
-                        ...preferences,
-                        largeCards: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold">
-                      Símbolos ampliados
-                    </span>
-                    <span className="mt-1 block text-sm text-stone-500">
-                      Cartões maiores, com menos símbolos por linha.
-                    </span>
-                  </span>
-                </label>
-              </section>
+                    <h2
+                      id="voice-settings"
+                      className="mb-2 text-lg font-semibold"
+                    >
+                      Voz e leitura
+                    </h2>
+                    <p className="mb-6 text-sm leading-6 text-stone-500">
+                      Escolha uma voz neural em português do Brasil para a
+                      prancha.
+                    </p>
+                    <label
+                      htmlFor="voice"
+                      className="mb-2 block text-sm font-medium"
+                    >
+                      Voz da prancha
+                    </label>
+                    <select
+                      id="voice"
+                      className="input-field"
+                      value={preferences.voiceURI}
+                      onChange={(event) =>
+                        setPreferences({
+                          ...preferences,
+                          voiceURI: event.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Francisca · padrão</option>
+                      {speech.voices.map((voice) => (
+                        <option key={voice.voiceURI} value={voice.voiceURI}>
+                          {voice.name} ({voice.lang})
+                        </option>
+                      ))}
+                    </select>
+                    <label
+                      htmlFor="rate"
+                      className="mt-6 mb-3 block text-sm font-medium"
+                    >
+                      Velocidade da fala: {preferences.rate.toFixed(1)}×
+                    </label>
+                    <input
+                      id="rate"
+                      className="min-h-12 w-full accent-[#6c48a0]"
+                      type="range"
+                      min="0.5"
+                      max="1.5"
+                      step="0.1"
+                      value={preferences.rate}
+                      onChange={(event) =>
+                        setPreferences({
+                          ...preferences,
+                          rate: Number(event.target.value),
+                        })
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="button-secondary mt-4"
+                      disabled={!speech.supported}
+                      onClick={() =>
+                        speech.speak(
+                          "Olá! Cada expressão importa.",
+                          preferences,
+                        )
+                      }
+                    >
+                      <Volume2 size={18} aria-hidden="true" />
+                      Testar voz
+                    </button>
+                    {speech.error && (
+                      <p role="alert" className="mt-3 text-sm text-red-800">
+                        {speech.error}
+                      </p>
+                    )}
+                    {speech.needsPlaybackGesture && (
+                      <button
+                        type="button"
+                        className="button-primary mt-3"
+                        onClick={speech.retryPlayback}
+                      >
+                        <Volume2 size={18} aria-hidden="true" />
+                        Ouvir áudio pronto
+                      </button>
+                    )}
+                  </section>
+                  <section
+                    className="surface p-6"
+                    aria-labelledby="board-settings"
+                  >
+                    <h2
+                      id="board-settings"
+                      className="mb-5 text-lg font-semibold"
+                    >
+                      Visual da prancha
+                    </h2>
+                    <label className="flex min-h-12 items-center gap-4">
+                      <input
+                        type="checkbox"
+                        className="h-6 w-6 accent-[#6c48a0]"
+                        checked={preferences.largeCards}
+                        onChange={(event) =>
+                          setPreferences({
+                            ...preferences,
+                            largeCards: event.target.checked,
+                          })
+                        }
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          Símbolos ampliados
+                        </span>
+                        <span className="mt-1 block text-sm text-stone-500">
+                          Cartões maiores, com menos símbolos por linha.
+                        </span>
+                      </span>
+                    </label>
+                  </section>
+                </>
+              )}
               <section
                 className="surface p-6"
                 aria-labelledby="account-settings"
@@ -688,12 +937,12 @@ function Workspace({
                   id="account-settings"
                   className="mb-4 text-lg font-semibold"
                 >
-                  Conta e perfis
+                  {canManageChildren ? "Conta e perfis" : "Conta profissional"}
                 </h2>
                 <p className="font-medium">{displayName}</p>
-                {session && (
+                {user && (
                   <p className="mt-1 break-all text-sm text-stone-500">
-                    {session.user.email}
+                    {user.email}
                   </p>
                 )}
                 <p className="mt-4 flex items-center gap-2 text-sm text-stone-600">
@@ -704,22 +953,28 @@ function Workspace({
                   />
                   {preview
                     ? "Dados de exemplo somente nesta sessão."
-                    : "Os perfis desta conta são protegidos por controle de acesso no banco."}
+                    : canManageChildren
+                      ? "Os perfis desta conta são protegidos por controle de acesso no banco."
+                      : "Consulta restrita aos pacientes vinculados à sua conta."}
                 </p>
-                <button
-                  type="button"
-                  className="button-secondary mt-5"
-                  onClick={() => setShowChildForm(true)}
-                >
-                  <Plus size={17} aria-hidden="true" />
-                  Adicionar perfil
-                </button>
+                {canManageChildren && (
+                  <button
+                    type="button"
+                    className="button-secondary mt-5"
+                    onClick={() => setShowChildForm(true)}
+                  >
+                    <Plus size={17} aria-hidden="true" />
+                    Adicionar perfil
+                  </button>
+                )}
               </section>
-              <p className="text-xs leading-5 text-stone-500">
-                Preferências de voz e tamanho são salvas somente neste
-                navegador. Os símbolos e as frases da prancha usam os áudios
-                incluídos no site. Outros textos podem precisar de conexão.
-              </p>
+              {canManageChildren && (
+                <p className="text-xs leading-5 text-stone-500">
+                  Preferências de voz e tamanho são salvas somente neste
+                  navegador. Os símbolos e as frases da prancha usam os áudios
+                  incluídos no site. Outros textos podem precisar de conexão.
+                </p>
+              )}
             </div>
           )}
           {!isChildMode && (

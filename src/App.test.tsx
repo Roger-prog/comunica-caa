@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 
 const speech = vi.hoisted(() => ({
   speak: vi.fn(),
@@ -98,7 +99,9 @@ describe("App: PIN e interface do modo criança", () => {
   it("preserva a frase, remove a navegação e só restaura os controles com o PIN correto", async () => {
     render(
       <AuthProvider>
-        <App />
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
       </AuthProvider>,
     );
     fireEvent.click(
@@ -116,9 +119,7 @@ describe("App: PIN e interface do modo criança", () => {
       screen.getByRole("searchbox", { name: "Buscar símbolo" }),
     ).toBeInTheDocument();
     expect(document.querySelector("footer")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Falar Água" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
     expect(speech.speak).toHaveBeenCalledWith("Água", {
       voiceURI: "",
       rate: 1,
@@ -172,14 +173,10 @@ describe("App: PIN e interface do modo criança", () => {
     fireEvent.change(screen.getByLabelText("PIN do responsável"), {
       target: { value: "8642" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Desbloquear" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("PIN incorreto");
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Cancelar" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(24);
@@ -192,9 +189,7 @@ describe("App: PIN e interface do modo criança", () => {
     fireEvent.change(screen.getByLabelText("PIN do responsável"), {
       target: { value: "4826" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Desbloquear" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
     await waitFor(() =>
       expect(
         screen.getByRole("navigation", { name: "Navegação principal" }),
@@ -210,6 +205,88 @@ describe("App: PIN e interface do modo criança", () => {
     expect(document.querySelector("footer")).toBeInTheDocument();
     expect(
       within(sentence()).getByText("Água", { exact: true }),
+    ).toBeInTheDocument();
+  });
+
+  it("mantém o bloqueio e a frase ao voltar pelo histórico até a rota de login", async () => {
+    function HistoryControls() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => navigate(-1)}>
+          Histórico: voltar
+        </button>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={["/login"]}>
+          <App />
+          <HistoryControls />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Explorar demonstração" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Iniciar modo criança" }),
+    );
+    fireEvent.change(screen.getByLabelText("Novo PIN"), {
+      target: { value: "4826" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirmar PIN"), {
+      target: { value: "4826" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Salvar PIN e iniciar" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    // Back must preserve the mounted lock even when history reaches /login.
+    for (let step = 0; step < 2; step++) {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Histórico: voltar" }),
+      );
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: "Desbloquear modo criança" }),
+        ).toBeInTheDocument();
+        expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+        expect(
+          within(
+            screen.getByRole("region", { name: "O que vamos comunicar?" }),
+          ).getByText("Água", { exact: true }),
+        ).toBeInTheDocument();
+      });
+    }
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Desbloquear modo criança" }),
+    );
+    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+      target: { value: "8642" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("PIN incorreto");
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+      target: { value: "4826" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("navigation", { name: "Navegação principal" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(
+        screen.getByRole("region", { name: "O que vamos comunicar?" }),
+      ).getByText("Água", { exact: true }),
     ).toBeInTheDocument();
   });
 });

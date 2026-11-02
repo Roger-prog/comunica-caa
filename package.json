@@ -8,18 +8,25 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "dev:demo": "vite --mode demo --host 127.0.0.1",
+    "dev:real": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "build:demo": "tsc --noEmit && vite build --mode demo --outDir dist-demo",
     "preview": "vite preview --host 127.0.0.1",
+    "preview:demo": "vite preview --outDir dist-demo --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:rls": "node --test supabase/tests/rls.test.mjs",
+    "test:rls": "node --test supabase/tests/rls.test.mjs supabase/tests/professional.test.mjs supabase/tests/roles.test.mjs",
     "check": "npm run typecheck && npm test && npm run test:rls && vite build"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.9",
     "lucide-react": "1.61.0",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "react-router-dom": "7.18.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.12",
