@@ -16,7 +16,7 @@
     "preview:demo": "vite preview --outDir dist-demo --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:rls": "node --test supabase/tests/rls.test.mjs supabase/tests/professional.test.mjs supabase/tests/roles.test.mjs",
+    "test:rls": "node --test supabase/tests/rls.test.mjs supabase/tests/professional.test.mjs supabase/tests/roles.test.mjs supabase/tests/profile-trigger.test.mjs",
     "check": "npm run typecheck && npm test && npm run test:rls && vite build"
   },
   "dependencies": {
