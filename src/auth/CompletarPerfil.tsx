@@ -62,10 +62,9 @@ export function CompletarPerfil() {
       {loading ? (
         <AuthNotice>Carregando seu perfil…</AuthNotice>
       ) : !user?.emailConfirmed ? (
-        <AuthNotice>
-          Confirme seu e-mail pelo link recebido na caixa de entrada antes de
-          concluir o acesso.
-        </AuthNotice>
+        <p role="status" className="text-sm text-stone-600">
+          Confirme seu e-mail antes de concluir o acesso.
+        </p>
       ) : (
         <form onSubmit={submit} aria-busy={busy} className="space-y-5">
           <label htmlFor="profile-name" className="block text-sm font-medium">

@@ -62,17 +62,15 @@ export function EsqueciSenha() {
           />
         </label>
         {error && <AuthAlert>{error}</AuthAlert>}
-        {sent && (
-          <AuthNotice>
-            Se houver uma conta com esse e-mail, você receberá um link para
-            redefinir a senha. Verifique a caixa de entrada e a pasta de spam.
-            Abra o link neste navegador.
-          </AuthNotice>
-        )}
         <SubmitButton busy={busy} disabled={!supabase}>
           Enviar link de recuperação
         </SubmitButton>
       </form>
+      {sent && (
+        <p role="status" className="mt-4 text-sm text-stone-600">
+          Solicitação recebida.
+        </p>
+      )}
       <Link
         to="/login"
         className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-brand-600 underline underline-offset-4"

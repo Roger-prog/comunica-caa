@@ -13,6 +13,7 @@ import { configurationError, supabase } from "../lib/supabase";
 import { isMockAuthMode } from "./authMode";
 import { isAccountRole, type AccountRole, type AuthUser } from "./authTypes";
 import { withPasswordUpdateToken } from "./passwordMutation";
+import { SignupEmailError } from "./signupEmail";
 import {
   clearRecoverySession,
   readRecoverySession,
@@ -635,6 +636,8 @@ function RealAuthProvider({ children }: { children: ReactNode }) {
           ? "signed-in"
           : "confirmation-required";
       } catch (cause) {
+        const emailError = SignupEmailError.from(cause);
+        if (emailError) throw emailError;
         return reportAuthFailure(cause);
       }
     },

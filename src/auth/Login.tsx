@@ -62,7 +62,7 @@ export function Login() {
       description={
         isMock
           ? "Para apresentar o Comunica, basta clicar em Entrar. Os campos abaixo são opcionais."
-          : "Acesse sua conta para continuar. Confirme seu e-mail pelo link recebido antes do primeiro acesso."
+          : "Acesse sua conta para continuar."
       }
     >
       {isMock && (

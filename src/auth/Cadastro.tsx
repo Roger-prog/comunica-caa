@@ -1,8 +1,13 @@
-import { useState, type FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useRef, useState, type FormEvent } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { configurationError, supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
 import type { AccountRole } from "./authTypes";
+import {
+  lookupEmailDomain,
+  SignupEmailError,
+  type EmailDomainStatus,
+} from "./signupEmail";
 import {
   AuthAlert,
   AuthLayout,
@@ -23,6 +28,7 @@ type ValidatedField = "email" | "password" | "confirmation";
 
 export function Cadastro() {
   const { isMock, signUp, signInWithGoogle } = useAuth();
+  const navigate = useNavigate();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,16 +37,29 @@ export function Cadastro() {
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState(false);
+  const [emailServerError, setEmailServerError] = useState<string | null>(null);
+  const [invalidDomain, setInvalidDomain] = useState<string | null>(null);
+  const domainRequest = useRef<{
+    domain: string;
+    result: Promise<EmailDomainStatus>;
+  } | null>(null);
   const [checkedFields, setCheckedFields] = useState<
     Partial<Record<ValidatedField, boolean>>
   >({});
   const normalizedEmail = email.trim();
-  const emailError = !normalizedEmail
+  const emailFormatError = !normalizedEmail
     ? "Informe seu e-mail."
     : normalizedEmail.length > 254 || !EMAIL_PATTERN.test(normalizedEmail)
       ? "Informe um e-mail válido, como voce@exemplo.com."
       : null;
+  const domain = emailFormatError
+    ? null
+    : normalizedEmail.slice(normalizedEmail.lastIndexOf("@") + 1).toLowerCase();
+  const emailError = emailFormatError ?? (
+    invalidDomain && invalidDomain === domain
+      ? "E-mail inválido. Esse domínio não existe ou não recebe e-mails."
+      : emailServerError
+  );
   const passwordError =
     password.length < MIN_PASSWORD_LENGTH
       ? `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`
@@ -62,11 +81,24 @@ export function Cadastro() {
     setCheckedFields((previous) => ({ ...previous, [field]: true }));
   }
 
+  function checkDomain(domain: string) {
+    if (domainRequest.current?.domain === domain) return domainRequest.current.result;
+    const result = lookupEmailDomain(domain).then((status) => {
+      if (domainRequest.current?.result === result) {
+        setInvalidDomain(status === "invalid" ? domain : null);
+        if (status === "unknown") domainRequest.current = null;
+      }
+      return status;
+    });
+    domainRequest.current = { domain, result };
+    return result;
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !supabase) return;
     setError(null);
-    setNotice(false);
+    setEmailServerError(null);
     setCheckedFields({ email: true, password: true, confirmation: true });
     if (!role) {
       setError("Escolha o tipo de conta: Responsável ou Fonoaudiólogo.");
@@ -76,16 +108,21 @@ export function Cadastro() {
       setError("Preencha seus dados e confirme o aviso de armazenamento.");
       return;
     }
-    if (emailError || passwordError || confirmationError) return;
+    if (!domain || passwordError || confirmationError) return;
     setBusy(true);
     try {
-      await signUp(nome.trim(), normalizedEmail, password, consent, role);
+      if (await checkDomain(domain) === "invalid") return;
+      const outcome = await signUp(
+        nome.trim(), normalizedEmail, password, consent, role,
+      );
       setPassword("");
       setConfirmation("");
       setCheckedFields({});
-      setNotice(true);
+      if (outcome === "confirmation-required")
+        navigate("/confirmar-email", { replace: true });
     } catch (cause) {
-      setError(operationError(cause));
+      if (cause instanceof SignupEmailError) setEmailServerError(cause.message);
+      else setError(operationError(cause));
     } finally {
       setBusy(false);
     }
@@ -139,8 +176,14 @@ export function Cadastro() {
             required
             maxLength={254}
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            onBlur={() => checkField("email")}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setEmailServerError(null);
+            }}
+            onBlur={() => {
+              checkField("email");
+              if (domain) void checkDomain(domain);
+            }}
             disabled={busy}
             autoCapitalize="none"
             spellCheck={false}
@@ -224,13 +267,6 @@ export function Cadastro() {
         </div>
         <ConsentField checked={consent} onChange={setConsent} disabled={busy} />
         {error && <AuthAlert>{error}</AuthAlert>}
-        {notice && (
-          <AuthNotice>
-            Se o cadastro foi aceito, você receberá um link de confirmação.
-            Verifique a caixa de entrada e a pasta de spam para confirmar seu
-            e-mail antes de acessar o painel. Abra o link neste navegador.
-          </AuthNotice>
-        )}
         <SubmitButton busy={busy} disabled={!supabase}>
           Criar minha conta
         </SubmitButton>

@@ -40,9 +40,7 @@ export function EmailConfirmation() {
           Confirme seu e-mail
         </h1>
         <p role="status" className="mt-4 leading-7 text-stone-600">
-          Verifique sua caixa de entrada e a pasta de spam. Abra o link enviado
-          pelo Comunica para confirmar seu endereço antes de acessar o painel.
-          Abra o link no mesmo navegador em que iniciou o cadastro.
+          Abra o link de confirmação neste navegador.
         </p>
         {error && (
           <p

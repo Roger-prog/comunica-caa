@@ -10,6 +10,8 @@ import { EsqueciSenha } from "./EsqueciSenha";
 import { RedefinirSenha } from "./RedefinirSenha";
 import { CompletarPerfil } from "./CompletarPerfil";
 import { AuthCallback } from "./AuthCallback";
+import { EmailConfirmation } from "./EmailConfirmation";
+import { SignupEmailError } from "./signupEmail";
 
 const mocks = vi.hoisted(() => ({
   isMock: false,
@@ -27,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   resetPassword: vi.fn(),
   updatePassword: vi.fn(),
   completeProfile: vi.fn(),
+  domainFetch: vi.fn(),
 }));
 
 vi.mock("../lib/supabase", () => ({
@@ -60,6 +63,7 @@ function mount(component: ReactNode, url = "/test") {
         <Route path="/login" element={<p>Destino: login</p>} />
         <Route path="/prancha" element={<p>Destino: prancha</p>} />
         <Route path="/profissional" element={<p>Destino: profissional</p>} />
+        <Route path="/confirmar-email" element={<EmailConfirmation />} />
         <Route
           path="/completar-perfil"
           element={<p>Destino: completar perfil</p>}
@@ -116,10 +120,15 @@ beforeEach(() => {
   ])
     method.mockReset().mockResolvedValue(undefined);
   mocks.signUp.mockReset().mockResolvedValue("confirmation-required");
+  mocks.domainFetch.mockReset().mockImplementation(async () =>
+    Response.json({ status: "valid" }),
+  );
+  vi.stubGlobal("fetch", mocks.domainFetch);
 });
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Login", () => {
@@ -194,8 +203,8 @@ describe("Login", () => {
       "test-only-password",
     );
     expect(
-      screen.getByText(/Confirme seu e-mail pelo link recebido/),
-    ).toBeInTheDocument();
+      screen.queryByText(/Confirme seu e-mail pelo link recebido/),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Criar conta" })).toHaveAttribute(
       "href",
       "/cadastro",
@@ -245,7 +254,7 @@ describe("Cadastro", () => {
     expect(mocks.signUp).not.toHaveBeenCalled();
   });
 
-  it("passes the selected role and clears passwords while requesting confirmation", async () => {
+  it("passes the selected role and opens the confirmation page without a form notice", async () => {
     mount(<Cadastro />);
     fillRegistration();
     fireEvent.click(screen.getByRole("radio", { name: /Fonoaudiólogo/ }));
@@ -258,10 +267,10 @@ describe("Cadastro", () => {
       "fonoaudiologo",
     );
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Verifique a caixa de entrada e a pasta de spam",
+      "Abra o link de confirmação neste navegador.",
     );
-    expect(screen.getByLabelText("Senha", { exact: true })).toHaveValue("");
-    expect(screen.getByLabelText("Confirmar senha")).toHaveValue("");
+    expect(screen.queryByText(/Se o cadastro foi aceito/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Criar minha conta" })).not.toBeInTheDocument();
   });
 
   it("shows errors by each field and blocks registration until all are corrected", async () => {
@@ -292,6 +301,42 @@ describe("Cadastro", () => {
     expect(mocks.signUp).toHaveBeenCalledOnce();
   });
 
+  it("looks up only the domain and blocks signup when the domain cannot receive email", async () => {
+    mocks.domainFetch.mockResolvedValueOnce(Response.json({ status: "invalid" }));
+    mount(<Cadastro />);
+    fillRegistration();
+    fireEvent.click(screen.getByRole("radio", { name: /Responsável/ }));
+    const email = screen.getByLabelText("E-mail");
+    await act(async () => fireEvent.blur(email));
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription(/domínio não existe ou não recebe e-mails/);
+    expect(mocks.domainFetch).toHaveBeenCalledWith(
+      "/api/email-domain",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ domain: "example.test" }),
+      }),
+    );
+    await submitForm("Nome");
+    expect(mocks.signUp).not.toHaveBeenCalled();
+    expect(mocks.domainFetch).toHaveBeenCalledOnce();
+  });
+
+  it("continues when DNS is inconclusive and shows a signup delivery rejection by the email field", async () => {
+    mocks.domainFetch.mockResolvedValueOnce(Response.json({ status: "unknown" }));
+    const rejection = SignupEmailError.from({ code: "email_address_not_authorized" });
+    mocks.signUp.mockRejectedValueOnce(rejection);
+    mount(<Cadastro />);
+    fillRegistration();
+    fireEvent.click(screen.getByRole("radio", { name: /Responsável/ }));
+    await submitForm("Nome");
+    expect(mocks.signUp).toHaveBeenCalledOnce();
+    const email = screen.getByLabelText("E-mail");
+    expect(email).toHaveAccessibleDescription(/serviço de envio do Comunica não aceita/);
+    fireEvent.change(email, { target: { value: "novo@example.test" } });
+    expect(email).not.toHaveAttribute("aria-invalid");
+  });
+
   it("offers Google for registration and mandatory profile completion guidance", async () => {
     mount(<Cadastro />);
     await act(async () => {
@@ -318,11 +363,9 @@ describe("EsqueciSenha", () => {
       "perfil@example.test",
     );
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Se houver uma conta com esse e-mail",
+      "Solicitação recebida.",
     );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Abra o link neste navegador",
-    );
+    expect(screen.queryByText(/Se houver uma conta/)).not.toBeInTheDocument();
   });
 
   it("keeps the request form usable when sending the link fails", async () => {

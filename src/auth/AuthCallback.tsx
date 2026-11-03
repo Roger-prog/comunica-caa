@@ -5,7 +5,7 @@ import { homeForRole } from "./authRouting";
 import { AuthAlert, AuthLayout, AuthNotice } from "./AuthLayout";
 
 export function AuthCallback() {
-  const { user, loading, error, isRecovery, retrySession, signOut } = useAuth();
+  const { user, loading, error, isRecovery, retrySession } = useAuth();
   const location = useLocation();
   const [callbackFailed] = useState(() => {
     const search = new URLSearchParams(location.search);
@@ -14,23 +14,15 @@ export function AuthCallback() {
       (params) => params.has("error") || params.has("error_code"),
     );
   });
-  const [busy, setBusy] = useState(false);
-  const [exitError, setExitError] = useState(false);
   if (!loading && !callbackFailed && !error && isRecovery)
     return <Navigate to="/redefinir-senha" replace />;
-  if (!loading && !callbackFailed && !error && user?.emailConfirmed)
-    return <Navigate to={homeForRole(user.role)} replace />;
-  async function exit() {
-    setBusy(true);
-    setExitError(false);
-    try {
-      await signOut();
-    } catch {
-      setExitError(true);
-    } finally {
-      setBusy(false);
-    }
-  }
+  if (!loading && !callbackFailed && !error && user)
+    return (
+      <Navigate
+        to={user.emailConfirmed ? homeForRole(user.role) : "/confirmar-email"}
+        replace
+      />
+    );
   return (
     <AuthLayout
       title="Concluir acesso"
@@ -38,32 +30,6 @@ export function AuthCallback() {
     >
       {loading ? (
         <AuthNotice>Validando o acesso…</AuthNotice>
-      ) : user && !user.emailConfirmed && !callbackFailed && !error ? (
-        <div className="space-y-4">
-          <AuthNotice>
-            Confirme seu e-mail pelo link enviado à sua caixa de entrada.
-            Verifique também a pasta de spam antes de tentar entrar.
-          </AuthNotice>
-          {exitError && (
-            <AuthAlert>
-              Não foi possível encerrar a sessão. Tente novamente.
-            </AuthAlert>
-          )}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void exit()}
-            className="button-secondary w-full"
-          >
-            Sair da conta
-          </button>
-          <Link
-            to="/login"
-            className="inline-flex min-h-11 items-center font-semibold text-brand-600 underline"
-          >
-            Voltar ao login
-          </Link>
-        </div>
       ) : (
         <div className="space-y-4">
           <AuthAlert>
