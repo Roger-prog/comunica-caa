@@ -258,10 +258,7 @@ describe("App: jornadas de autenticação simulada", () => {
   });
 
   it("lets a guest explore without granting access to protected routes", () => {
-    mount();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Explorar demonstração" }),
-    );
+    mount(["/demonstracao/prancha"]);
     expect(currentRoute()).toBe("/demonstracao/prancha");
     expect(
       screen.getByRole("button", { name: "Falar Água" }),

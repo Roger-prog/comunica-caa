@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { configurationError, supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
 import {
@@ -12,7 +12,7 @@ import {
   SubmitButton,
 } from "./AuthLayout";
 
-export function Login({ onPreview }: { onPreview?: () => void }) {
+export function Login() {
   const {
     signIn,
     signInWithGoogle,
@@ -20,7 +20,6 @@ export function Login({ onPreview }: { onPreview?: () => void }) {
     retrySession,
     isMock,
   } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -191,20 +190,6 @@ export function Login({ onPreview }: { onPreview?: () => void }) {
           </p>
         </div>
       )}
-      <div className="mt-6 border-t border-stone-100 pt-5 text-center">
-        <button
-          type="button"
-          onClick={onPreview ?? (() => navigate("/demonstracao/prancha"))}
-          disabled={busy}
-          className="button-secondary w-full"
-        >
-          Explorar demonstração
-        </button>
-        <p className="mt-2 text-xs leading-relaxed text-stone-500">
-          Conheça a interface sem criar uma conta. Dados fictícios, sem gravação
-          no banco.
-        </p>
-      </div>
     </AuthLayout>
   );
 }

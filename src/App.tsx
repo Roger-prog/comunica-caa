@@ -17,7 +17,7 @@ import {
   X,
   Stethoscope,
 } from "lucide-react";
-import { AuthPage } from "./auth/AuthPage";
+import { Login } from "./auth/Login";
 import { Cadastro } from "./auth/Cadastro";
 import { EsqueciSenha } from "./auth/EsqueciSenha";
 import { RedefinirSenha } from "./auth/RedefinirSenha";
@@ -208,7 +208,6 @@ function AppRoutes() {
 function LoginRoute({ registering = false }: { registering?: boolean }) {
   const { user, loading, isRecovery, isMock } = useAuth();
   const location = useLocation();
-  const routeTo = useNavigate();
   const from: unknown = (location.state as { from?: unknown } | null)?.from;
   if (loading) return <SessionPending />;
   if (isRecovery) return <Navigate to="/redefinir-senha" replace />;
@@ -217,7 +216,7 @@ function LoginRoute({ registering = false }: { registering?: boolean }) {
   if (user)
     return <Navigate to={loginDestination(from, user.role, isMock)} replace />;
   if (registering) return <Cadastro />;
-  return <AuthPage onPreview={() => routeTo("/demonstracao/prancha")} />;
+  return <Login />;
 }
 
 function OnboardingRoute() {

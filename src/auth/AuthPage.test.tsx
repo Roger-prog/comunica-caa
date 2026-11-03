@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthUser } from "./authTypes";
 import type { Session } from "@supabase/supabase-js";
-import { AuthPage } from "./AuthPage";
+import { Login } from "./Login";
 import { Cadastro } from "./Cadastro";
 import { EsqueciSenha } from "./EsqueciSenha";
 import { RedefinirSenha } from "./RedefinirSenha";
@@ -130,7 +130,7 @@ describe("Login", () => {
     mocks.signIn.mockImplementation(
       () => new Promise<void>((resolve) => setTimeout(resolve, 800)),
     );
-    mount(<AuthPage onPreview={vi.fn()} />);
+    mount(<Login />);
     expect(screen.getByText("Acesso de demonstração")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Entrar com Google" }),
@@ -152,7 +152,7 @@ describe("Login", () => {
     mocks.isMock = true;
     mocks.supabase = null;
     const storage = vi.spyOn(Storage.prototype, "setItem");
-    mount(<AuthPage onPreview={vi.fn()} />);
+    mount(<Login />);
     fireEvent.change(screen.getByLabelText("E-mail"), {
       target: { value: "invalid-email" },
     });
@@ -166,7 +166,7 @@ describe("Login", () => {
 
   it("keeps real authentication disabled when configuration is absent", () => {
     mocks.supabase = null;
-    mount(<AuthPage onPreview={vi.fn()} />);
+    mount(<Login />);
     expect(
       screen.getByRole("button", { name: "Entrar na minha conta" }),
     ).toBeDisabled();
@@ -181,7 +181,7 @@ describe("Login", () => {
   });
 
   it("submits real credentials and offers email confirmation guidance", async () => {
-    mount(<AuthPage onPreview={vi.fn()} />);
+    mount(<Login />);
     fireEvent.change(screen.getByLabelText("E-mail"), {
       target: { value: "perfil@example.test" },
     });
@@ -203,13 +203,16 @@ describe("Login", () => {
     expect(
       screen.getByRole("link", { name: "Esqueci minha senha" }),
     ).toHaveAttribute("href", "/esqueci-senha");
+    expect(
+      screen.queryByRole("button", { name: "Explorar demonstração" }),
+    ).not.toBeInTheDocument();
   });
 
   it("invokes Google independently of password credentials and restores usability on error", async () => {
     mocks.signInWithGoogle.mockRejectedValueOnce(
       new Error("Não foi possível iniciar o acesso com Google."),
     );
-    mount(<AuthPage onPreview={vi.fn()} />);
+    mount(<Login />);
     await act(async () => {
       fireEvent.click(
         screen.getByRole("button", { name: "Entrar com Google" }),
@@ -261,16 +264,32 @@ describe("Cadastro", () => {
     expect(screen.getByLabelText("Confirmar senha")).toHaveValue("");
   });
 
-  it("rejects a mismatched password confirmation without a request", async () => {
+  it("shows errors by each field and blocks registration until all are corrected", async () => {
     mount(<Cadastro />);
     fillRegistration();
     fireEvent.click(screen.getByRole("radio", { name: /Responsável/ }));
-    fireEvent.change(screen.getByLabelText("Confirmar senha"), {
-      target: { value: "different-password" },
-    });
-    await submitForm("Nome");
+    const email = screen.getByLabelText("E-mail");
+    const password = screen.getByLabelText("Senha", { exact: true });
+    const confirmation = screen.getByLabelText("Confirmar senha");
+    fireEvent.change(email, { target: { value: "perfil@example" } });
+    fireEvent.change(password, { target: { value: "short" } });
+    fireEvent.blur(email);
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription(/Informe um e-mail válido/);
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
     expect(mocks.signUp).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent("não coincidem");
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveAccessibleDescription(/pelo menos 10 caracteres/);
+    expect(confirmation).toHaveAttribute("aria-invalid", "true");
+    expect(confirmation).toHaveAccessibleDescription(/não coincidem/);
+
+    fireEvent.change(email, { target: { value: "perfil@example.test" } });
+    fireEvent.change(password, { target: { value: "test-only-password" } });
+    for (const field of [email, password, confirmation]) {
+      expect(field).not.toHaveAttribute("aria-invalid");
+    }
+    await submitForm("Nome");
+    expect(mocks.signUp).toHaveBeenCalledOnce();
   });
 
   it("offers Google for registration and mandatory profile completion guidance", async () => {

@@ -99,15 +99,10 @@ describe("App: PIN e interface do modo criança", () => {
   it("preserva a frase, remove a navegação e só restaura os controles com o PIN correto", async () => {
     render(
       <AuthProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={["/demonstracao/prancha"]}>
           <App />
         </MemoryRouter>
       </AuthProvider>,
-    );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Explorar demonstração",
-      }),
     );
     expect(
       screen.getByRole("navigation", { name: "Navegação principal" }),
@@ -220,14 +215,13 @@ describe("App: PIN e interface do modo criança", () => {
 
     render(
       <AuthProvider>
-        <MemoryRouter initialEntries={["/login"]}>
+        <MemoryRouter
+          initialEntries={["/login", "/", "/demonstracao/prancha"]}
+        >
           <App />
           <HistoryControls />
         </MemoryRouter>
       </AuthProvider>,
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Explorar demonstração" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
     fireEvent.click(

@@ -14,6 +14,13 @@ import {
   SubmitButton,
 } from "./AuthLayout";
 
+const MIN_PASSWORD_LENGTH = 10;
+const MAX_PASSWORD_LENGTH = 128;
+const EMAIL_PATTERN =
+  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+const VALIDATED_INPUT = "input-field mt-2 aria-invalid:border-red-600";
+type ValidatedField = "email" | "password" | "confirmation";
+
 export function Cadastro() {
   const { isMock, signUp, signInWithGoogle } = useAuth();
   const [nome, setNome] = useState("");
@@ -25,33 +32,57 @@ export function Cadastro() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState(false);
+  const [checkedFields, setCheckedFields] = useState<
+    Partial<Record<ValidatedField, boolean>>
+  >({});
+  const normalizedEmail = email.trim();
+  const emailError = !normalizedEmail
+    ? "Informe seu e-mail."
+    : normalizedEmail.length > 254 || !EMAIL_PATTERN.test(normalizedEmail)
+      ? "Informe um e-mail válido, como voce@exemplo.com."
+      : null;
+  const passwordError =
+    password.length < MIN_PASSWORD_LENGTH
+      ? `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`
+      : password.length > MAX_PASSWORD_LENGTH
+        ? `A senha deve ter até ${MAX_PASSWORD_LENGTH} caracteres.`
+        : null;
+  const confirmationError = !confirmation
+    ? "Confirme sua senha."
+    : confirmation !== password
+      ? "As senhas informadas não coincidem."
+      : null;
+  const showEmailError = checkedFields.email && !!emailError;
+  const showPasswordError = checkedFields.password && !!passwordError;
+  const showConfirmationError =
+    checkedFields.confirmation && !!confirmationError;
   if (isMock) return <Navigate to="/login" replace />;
+
+  function checkField(field: ValidatedField) {
+    setCheckedFields((previous) => ({ ...previous, [field]: true }));
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !supabase) return;
     setError(null);
     setNotice(false);
+    setCheckedFields({ email: true, password: true, confirmation: true });
     if (!role) {
       setError("Escolha o tipo de conta: Responsável ou Fonoaudiólogo.");
       return;
     }
-    if (!nome.trim() || !email.trim() || !consent) {
+    if (!nome.trim() || !consent) {
       setError("Preencha seus dados e confirme o aviso de armazenamento.");
       return;
     }
-    if (password.length < 10) {
-      setError("A senha deve ter pelo menos 10 caracteres.");
-      return;
-    }
-    if (password !== confirmation) {
-      setError("As senhas informadas não coincidem.");
-      return;
-    }
+    if (emailError || passwordError || confirmationError) return;
     setBusy(true);
     try {
-      await signUp(nome.trim(), email.trim(), password, consent, role);
+      await signUp(nome.trim(), normalizedEmail, password, consent, role);
       setPassword("");
       setConfirmation("");
+      setCheckedFields({});
       setNotice(true);
     } catch (cause) {
       setError(operationError(cause));
@@ -81,7 +112,7 @@ export function Cadastro() {
           <AuthNotice>{configurationError}</AuthNotice>
         </div>
       )}
-      <form onSubmit={submit} aria-busy={busy} className="space-y-5">
+      <form onSubmit={submit} noValidate aria-busy={busy} className="space-y-5">
         <RoleFields value={role} onChange={setRole} disabled={busy} />
         <label htmlFor="register-name" className="block text-sm font-medium">
           Nome
@@ -96,8 +127,10 @@ export function Cadastro() {
             className="input-field mt-2"
           />
         </label>
-        <label htmlFor="register-email" className="block text-sm font-medium">
-          E-mail
+        <div>
+          <label htmlFor="register-email" className="block text-sm font-medium">
+            E-mail
+          </label>
           <input
             id="register-email"
             type="email"
@@ -107,55 +140,88 @@ export function Cadastro() {
             maxLength={254}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            onBlur={() => checkField("email")}
             disabled={busy}
             autoCapitalize="none"
             spellCheck={false}
-            className="input-field mt-2"
+            aria-invalid={showEmailError || undefined}
+            aria-describedby={showEmailError ? "register-email-error" : undefined}
+            className={VALIDATED_INPUT}
           />
-        </label>
-        <label
-          htmlFor="register-password"
-          className="block text-sm font-medium"
-        >
-          Senha
+          <p
+            id="register-email-error"
+            aria-live="polite"
+            className="text-sm text-red-700 not-empty:mt-1.5"
+          >
+            {showEmailError && emailError}
+          </p>
+        </div>
+        <div>
+          <label
+            htmlFor="register-password"
+            className="block text-sm font-medium"
+          >
+            Senha
+          </label>
           <input
             id="register-password"
             type="password"
             autoComplete="new-password"
             required
-            minLength={10}
-            maxLength={128}
+            minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_LENGTH}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            onBlur={() => checkField("password")}
             disabled={busy}
+            aria-invalid={showPasswordError || undefined}
             aria-describedby="register-password-requirements"
-            className="input-field mt-2"
+            className={VALIDATED_INPUT}
           />
-        </label>
-        <p
-          id="register-password-requirements"
-          className="text-xs text-stone-500"
-        >
-          Use pelo menos 10 caracteres.
-        </p>
-        <label
-          htmlFor="register-confirmation"
-          className="block text-sm font-medium"
-        >
-          Confirmar senha
+          <p
+            id="register-password-requirements"
+            aria-live="polite"
+            className={
+              showPasswordError
+                ? "mt-1.5 text-sm text-red-700"
+                : "mt-1.5 text-xs text-stone-500"
+            }
+          >
+            {showPasswordError
+              ? passwordError
+              : `Use pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`}
+          </p>
+        </div>
+        <div>
+          <label
+            htmlFor="register-confirmation"
+            className="block text-sm font-medium"
+          >
+            Confirmar senha
+          </label>
           <input
             id="register-confirmation"
             type="password"
             autoComplete="new-password"
             required
-            minLength={10}
-            maxLength={128}
+            minLength={MIN_PASSWORD_LENGTH}
+            maxLength={MAX_PASSWORD_LENGTH}
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
+            onBlur={() => checkField("confirmation")}
             disabled={busy}
-            className="input-field mt-2"
+            aria-invalid={showConfirmationError || undefined}
+            aria-describedby={showConfirmationError ? "register-confirmation-error" : undefined}
+            className={VALIDATED_INPUT}
           />
-        </label>
+          <p
+            id="register-confirmation-error"
+            aria-live="polite"
+            className="text-sm text-red-700 not-empty:mt-1.5"
+          >
+            {showConfirmationError && confirmationError}
+          </p>
+        </div>
         <ConsentField checked={consent} onChange={setConsent} disabled={busy} />
         {error && <AuthAlert>{error}</AuthAlert>}
         {notice && (
