@@ -24,6 +24,7 @@ import { RedefinirSenha } from "./auth/RedefinirSenha";
 import { CompletarPerfil } from "./auth/CompletarPerfil";
 import { AuthCallback } from "./auth/AuthCallback";
 import { EmailConfirmation } from "./auth/EmailConfirmation";
+import { AboutPage, PrivacyPage } from "./components/PublicPages";
 import {
   homeForRole,
   loginDestination,
@@ -187,6 +188,8 @@ function AppRoutes() {
   return (
     <Routes location={childMode.isChildMode ? lockedPath : location}>
       <Route path="/" element={<HomeRedirect />} />
+      <Route path="/sobre" element={<AboutPage />} />
+      <Route path="/privacidade" element={<PrivacyPage />} />
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/cadastro" element={<LoginRoute registering />} />
       <Route path="/esqueci-senha" element={<EsqueciSenha />} />

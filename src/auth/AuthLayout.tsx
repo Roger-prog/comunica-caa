@@ -98,9 +98,19 @@ export function AuthLayout({
             {children}
           </section>
         </div>
-        <footer className="flex items-center justify-center gap-2 text-xs text-stone-500">
-          <ShieldCheck size={15} aria-hidden="true" />
-          <span>Seu espaço de comunicação, com acesso individual.</span>
+        <footer className="flex flex-col items-center justify-center gap-2 text-xs text-stone-500">
+          <span className="inline-flex items-center gap-2">
+            <ShieldCheck size={15} aria-hidden="true" />
+            Seu espaço de comunicação, com acesso individual.
+          </span>
+          <nav aria-label="Informações do Comunica" className="flex flex-wrap justify-center gap-4">
+            <Link to="/sobre" className="inline-flex min-h-11 items-center rounded-lg font-semibold text-brand-700 underline underline-offset-4">
+              Sobre o Comunica
+            </Link>
+            <Link to="/privacidade" className="inline-flex min-h-11 items-center rounded-lg font-semibold text-brand-700 underline underline-offset-4">
+              Política de privacidade
+            </Link>
+          </nav>
         </footer>
       </div>
     </main>
