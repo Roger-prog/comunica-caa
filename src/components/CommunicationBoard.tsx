@@ -76,6 +76,20 @@ export function CommunicationBoard({
     onSelect(pictogram);
   }
 
+  function handleOuvirFrase() {
+    if (!sentence.length || !speech.supported) return;
+
+    // Start playback within the user gesture, without waiting for persistence.
+    speech.speak(sentenceLabels.join(" "), {
+      voiceURI,
+      rate,
+      segments: sentenceLabels,
+    });
+
+    // onSelect is workspace.record: each occurrence creates its own history event.
+    sentence.forEach((pictogram) => onSelect(pictogram));
+  }
+
   return (
     <div className={isChildMode ? "space-y-4" : "space-y-6"}>
       <section
@@ -132,13 +146,7 @@ export function CommunicationBoard({
             type="button"
             className="button-primary min-h-12"
             disabled={!sentence.length || !speech.supported}
-            onClick={() =>
-              speech.speak(sentenceLabels.join(" "), {
-                voiceURI,
-                rate,
-                segments: sentenceLabels,
-              })
-            }
+            onClick={handleOuvirFrase}
           >
             <Volume2 size={18} aria-hidden="true" /> Ouvir frase
           </button>

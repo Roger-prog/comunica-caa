@@ -28,7 +28,7 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Conclusão do perfil no primeiro acesso pelo Google.
 - Painéis e navegação de acordo com o tipo de conta.
 - Perfis individuais de crianças vinculados ao usuário.
-- Registro das seleções e histórico de comunicação por perfil.
+- Registro das seleções e de cada símbolo ao ouvir uma frase, incluindo repetições, no histórico por perfil.
 - Indicadores de utilização em períodos de 7 ou 30 dias.
 - Visualização da frequência de uso dos símbolos e das categorias.
 
@@ -41,7 +41,7 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 
 ## Acompanhamento profissional
 
-- Convites individuais com código de seis dígitos, uso único e validade de 24 horas.
+- Convites individuais com código de seis dígitos, uso único e validade de 10 minutos.
 - Preparação de e-mail com o convite para revisão e envio pelo responsável.
 - Painel do fonoaudiólogo com os pacientes vinculados e acesso de consulta ao histórico.
 - Seleção de período, paginação dos registros e exportação de relatórios em PDF.

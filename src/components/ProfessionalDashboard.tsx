@@ -132,7 +132,7 @@ export function ProfessionalDashboard({
             </h2>
             <p id={descriptionId} className="mt-1 text-sm text-stone-600">
               Informe o código de seis dígitos enviado pelo responsável. O
-              convite é válido por 24 horas e pode ser utilizado uma vez.
+              convite é válido por 10 minutos e pode ser utilizado uma vez.
             </p>
           </div>
         </div>

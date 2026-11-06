@@ -138,7 +138,7 @@ export function PatientInvitation({
         {pending ? "Aguarde…" : "Gerar código de convite"}
       </button>
       <p className="mt-3 text-xs leading-5 text-stone-500">
-        O código é de uso único e vale por 24 horas. Gerar outro código invalida
+        O código é de uso único e vale por 10 minutos. Gerar outro código invalida
         o anterior. O envio permite consultar o histórico e gerar relatórios
         deste perfil.
       </p>

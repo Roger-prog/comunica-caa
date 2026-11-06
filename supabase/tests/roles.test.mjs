@@ -16,6 +16,7 @@ const CHILD = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OTHER_CHILD = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const migrations = await Promise.all([
   '001_initial_schema.sql', '002_professional_links.sql', '003_account_roles.sql',
+  '005_invitation_ten_minutes.sql',
 ].map((name) => readFile(new URL(`../migrations/${name}`, import.meta.url), 'utf8')));
 
 async function fixture(db) {
@@ -71,6 +72,7 @@ test('PostgreSQL: perfis canonicos, confirmacao e isolamento por papel', async (
     values($1,$2,'agua','Água','Necessidades')`, [OWNER, CHILD]);
   await db.query('insert into public.caa_members(crianca_id,professional_id) values($1,$2)', [CHILD, LEGACY_PROFESSIONAL]);
   await db.exec(migrations[2]);
+  await db.exec(migrations[3]);
 
   await t.test('renomeia perfis sem perder IDs, FKs, historico ou vinculos existentes', async () => {
     assert.equal((await db.query("select to_regclass('public.profiles') as old")).rows[0].old, null);
@@ -190,6 +192,8 @@ test('PostgreSQL: perfis canonicos, confirmacao e isolamento por papel', async (
   await t.test('somente responsavel confirmado gera convites para o proprio paciente', async () => {
     invite = (await asUser(OWNER, () => db.query('select * from public.create_caa_invitation($1)', [CHILD]))).rows[0];
     assert.match(invite.code, /^[0-9]{6}$/);
+    assert.equal(invite.expires_at.getTime() - invite.created_at.getTime(), 10 * 60 * 1000);
+    await denied(asUser(null, () => db.query('select * from public.create_caa_invitation($1)', [CHILD])));
     await denied(asUser(GUARDIAN, () => db.query('select * from public.create_caa_invitation($1)', [CHILD])));
     for (const id of [PROFESSIONAL, GOOGLE]) {
       await denied(asUser(id, () => db.query('select * from public.create_caa_invitation($1)', [CHILD])));
@@ -241,6 +245,44 @@ test('PostgreSQL: perfis canonicos, confirmacao e isolamento por papel', async (
     await denied(asUser(null, () => db.query("select comunica_react_private.has_role('responsavel')")));
     assert.equal((await db.query("select relrowsecurity from pg_class where oid='public.caa_profiles'::regclass")).rows[0].relrowsecurity, true);
   });
+});
+
+test('migracao de convites preserva existentes e aplica 10 minutos na geracao e regeneracao', async (t) => {
+  const db = new PGlite();
+  t.after(() => db.close());
+  await fixture(db);
+  await db.exec(migrations[2]);
+  const { asUser, signup } = access(db);
+  await signup(OWNER, 'responsavel');
+  await signup(PROFESSIONAL, 'fonoaudiologo');
+  await db.query('insert into public.criancas(id,usuario_id,nome) values($1,$2,$3),($4,$2,$5)',
+    [CHILD, OWNER, 'Paciente A', OTHER_CHILD, 'Paciente B']);
+  const create = async () => (await asUser(OWNER,
+    () => db.query('select * from public.create_caa_invitation($1)', [CHILD]))).rows[0];
+  const previous = await create();
+  assert.equal(previous.expires_at.getTime() - previous.created_at.getTime(), 24 * 60 * 60 * 1000);
+
+  await db.exec(migrations[3]);
+  await db.exec(migrations[3]);
+  assert.deepEqual((await db.query('select * from public.caa_invitations where id=$1', [previous.id])).rows[0], previous);
+
+  const regenerated = await create();
+  assert.equal(regenerated.id, previous.id);
+  assert.notEqual(regenerated.code, previous.code);
+  assert.equal(regenerated.is_used, false);
+  assert.equal(regenerated.expires_at.getTime() - regenerated.created_at.getTime(), 10 * 60 * 1000);
+  const fromDefault = (await db.query(`insert into public.caa_invitations(crianca_id,code)
+    values($1,$2) returning *`, [OTHER_CHILD, regenerated.code === '000000' ? '000001' : '000000'])).rows[0];
+  assert.equal(fromDefault.expires_at.getTime() - fromDefault.created_at.getTime(), 10 * 60 * 1000);
+
+  await db.query(`update public.caa_invitations
+    set created_at=clock_timestamp()-interval '10 minutes', expires_at=clock_timestamp()
+    where id=$1`, [regenerated.id]);
+  const expired = (await asUser(PROFESSIONAL,
+    () => db.query('select * from public.redeem_caa_invitation($1)', [regenerated.code]))).rows[0];
+  assert.equal(expired.status, 'invalid');
+  assert.equal((await db.query('select count(*)::int as n from public.caa_members')).rows[0].n, 0);
+  assert.equal((await db.query('select is_used from public.caa_invitations where id=$1', [regenerated.id])).rows[0].is_used, false);
 });
 
 test('migracao de papeis recusa caa_profiles legado sem alterar dados', async (t) => {

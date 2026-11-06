@@ -203,6 +203,79 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(prepareSentence).toHaveBeenCalledTimes(3);
   });
 
+  it("records every phrase occurrence on each playback without changing the composition", () => {
+    const { props } = fixture();
+    const record = vi.fn();
+    props.onSelect = record;
+    render(<CommunicationBoard {...props} />);
+    const agua = PICTOGRAMS.find((item) => item.label === "Água")!;
+    const mais = PICTOGRAMS.find((item) => item.label === "Mais")!;
+
+    for (const label of ["Mais", "Água", "Água"]) {
+      fireEvent.click(screen.getByRole("button", { name: `Falar ${label}` }));
+    }
+    expect(record.mock.calls).toEqual([[mais], [agua], [agua]]);
+    record.mockClear();
+    vi.mocked(props.speech.speak).mockClear();
+
+    const play = screen.getByRole("button", { name: "Ouvir frase" });
+    fireEvent.click(play);
+    expect(record.mock.calls).toEqual([[mais], [agua], [agua]]);
+    expect(props.speech.speak).toHaveBeenCalledExactlyOnceWith("Mais Água Água", {
+      voiceURI: props.voiceURI,
+      rate: props.rate,
+      segments: ["Mais", "Água", "Água"],
+    });
+    expect(vi.mocked(props.speech.speak).mock.invocationCallOrder[0])
+      .toBeLessThan(record.mock.invocationCallOrder[0]);
+
+    fireEvent.click(play);
+    expect(record.mock.calls).toEqual([
+      [mais], [agua], [agua], [mais], [agua], [agua],
+    ]);
+    const sentence = screen.getByRole("region", { name: "O que vamos comunicar?" });
+    expect(within(sentence).getAllByText("Água", { exact: true })).toHaveLength(2);
+    expect(within(sentence).getAllByText("Mais", { exact: true })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
+    fireEvent.click(play);
+    expect(play).toBeDisabled();
+    expect(record).toHaveBeenCalledTimes(6);
+    expect(props.speech.speak).toHaveBeenCalledTimes(2);
+  });
+
+  it("records only the twelve symbols still present in the phrase", () => {
+    const { props } = fixture();
+    const record = vi.fn();
+    render(<CommunicationBoard {...props} onSelect={record} />);
+    fireEvent.click(screen.getByRole("button", { name: "Falar Mais" }));
+    for (let index = 0; index < 12; index++) {
+      fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    }
+    record.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
+    expect(record).toHaveBeenCalledTimes(12);
+    expect(record.mock.calls.every(([item]) => item.label === "Água")).toBe(true);
+  });
+
+  it("does not register a phrase when playback is unavailable", () => {
+    const { props } = fixture();
+    const record = vi.fn();
+    const { rerender } = render(<CommunicationBoard {...props} onSelect={record} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
+    expect(record).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    record.mockClear();
+    vi.mocked(props.speech.speak).mockClear();
+
+    rerender(<CommunicationBoard {...props} onSelect={record}
+      speech={{ ...props.speech, supported: false }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
+    expect(record).not.toHaveBeenCalled();
+    expect(props.speech.speak).not.toHaveBeenCalled();
+  });
+
   it("cancels old sentence preparation when composition or voice settings change", () => {
     const { props, prepareSentence, preparations } = fixture();
     const { rerender, unmount } = render(<CommunicationBoard {...props} />);
