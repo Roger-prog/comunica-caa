@@ -1,3 +1,11 @@
+import quickPhrases from "../data/default-quick-phrases.json";
+
+export type BoardQuickPhrase = { id: string; label: string; text: string };
+export const MAX_QUICK_PHRASES = 24;
+export const MIN_SENTENCE_SYMBOLS = 8;
+export const MAX_SENTENCE_SYMBOLS = 80;
+export const DEFAULT_QUICK_PHRASES: BoardQuickPhrase[] = quickPhrases;
+
 export type BoardSettings = {
   columns: number;
   cardSize: "compact" | "regular" | "large";
@@ -14,6 +22,10 @@ export type BoardSettings = {
   symbolOrder: Record<string, string[]>;
   voiceURI: string;
   rate: number;
+  speakOnSelect: boolean;
+  maxSentenceSymbols: number;
+  quickPhrasesEnabled: boolean;
+  quickPhrases: BoardQuickPhrase[];
 };
 
 export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
@@ -32,6 +44,10 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
   symbolOrder: {},
   voiceURI: "",
   rate: 1,
+  speakOnSelect: true,
+  maxSentenceSymbols: 40,
+  quickPhrasesEnabled: true,
+  quickPhrases: DEFAULT_QUICK_PHRASES,
 };
 
 export type BoardSettingsRow = {
@@ -72,6 +88,24 @@ export type PatientBoard = {
   overrides: CatalogOverride[];
 };
 
+function normalizeQuickPhrases(value: unknown): BoardQuickPhrase[] {
+  if (!Array.isArray(value)) return DEFAULT_QUICK_PHRASES;
+  const items: BoardQuickPhrase[] = [];
+  const ids = new Set<string>();
+  for (const phrase of value) {
+    if (!phrase || typeof phrase !== "object" || typeof phrase.id !== "string" ||
+        !/^[a-z0-9_-]{1,80}$/i.test(phrase.id) || ids.has(phrase.id) ||
+        typeof phrase.label !== "string" || typeof phrase.text !== "string") continue;
+    const label = phrase.label.trim().slice(0, 80);
+    const text = phrase.text.trim().slice(0, 150);
+    if (!label || !text) continue;
+    items.push({ id: phrase.id, label, text });
+    ids.add(phrase.id);
+    if (items.length === MAX_QUICK_PHRASES) break;
+  }
+  return items;
+}
+
 export function normalizeBoardSettings(value: Partial<BoardSettings>): BoardSettings {
   const source = value && typeof value === "object" ? value : {};
   const strings = (list: unknown, limit: number): string[] =>
@@ -101,5 +135,11 @@ export function normalizeBoardSettings(value: Partial<BoardSettings>): BoardSett
     symbolOrder: order,
     voiceURI: option(source.voiceURI, ["", "pt-BR-FranciscaNeural", "pt-BR-AntonioNeural"], ""),
     rate: typeof source.rate === "number" && source.rate >= 0.5 && source.rate <= 1.5 ? source.rate : 1,
+    speakOnSelect: source.speakOnSelect !== false,
+    maxSentenceSymbols: integer(
+      source.maxSentenceSymbols, MIN_SENTENCE_SYMBOLS, MAX_SENTENCE_SYMBOLS, DEFAULT_BOARD_SETTINGS.maxSentenceSymbols,
+    ),
+    quickPhrasesEnabled: source.quickPhrasesEnabled !== false,
+    quickPhrases: normalizeQuickPhrases(source.quickPhrases),
   };
 }

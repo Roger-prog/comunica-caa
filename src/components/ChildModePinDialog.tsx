@@ -181,15 +181,15 @@ export function ChildModePinDialog({
           <LockKeyhole size={24} aria-hidden="true" />
         </span>
         <h2 id={`${id}-title`} className="text-xl font-semibold tracking-tight">
-          {setup ? "PIN do modo criança (T21)" : "Sair do modo criança"}
+          {setup ? "PIN do modo comunicação" : "Sair do modo comunicação"}
         </h2>
         <p
           id={`${id}-description`}
           className="mt-3 text-sm leading-6 text-stone-600"
         >
           {setup
-            ? "Defina um PIN de 4 a 6 números para o responsável sair da prancha. Guarde esse número."
-            : "Digite o PIN do responsável para restaurar a navegação."}
+            ? "Defina um PIN de 4 a 6 números para voltar aos menus. Guarde o PIN durante a sessão."
+            : "Digite o PIN de saída para voltar aos menus."}
         </p>
         <form
           className="mt-6 space-y-4"
@@ -202,7 +202,7 @@ export function ChildModePinDialog({
               htmlFor={`${id}-pin`}
               className="mb-2 block text-sm font-medium"
             >
-              {setup ? "Novo PIN" : "PIN do responsável"}
+              {setup ? "Novo PIN" : "PIN de saída"}
             </label>
             <input
               ref={pinRef}

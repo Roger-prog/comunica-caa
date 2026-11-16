@@ -1,0 +1,12 @@
+[
+  { "id": "rapida-dor", "label": "Estou com dor", "text": "Estou com dor." },
+  { "id": "rapida-mal-estar", "label": "Não estou me sentindo bem", "text": "Não estou me sentindo bem." },
+  { "id": "rapida-respirar", "label": "Não consigo respirar direito", "text": "Não consigo respirar direito." },
+  { "id": "rapida-repetir", "label": "Pode repetir?", "text": "Pode repetir?" },
+  { "id": "rapida-nao-entendi", "label": "Não entendi", "text": "Não entendi." },
+  { "id": "rapida-ajuda", "label": "Preciso de ajuda", "text": "Preciso de ajuda." },
+  { "id": "rapida-pergunta", "label": "Quero fazer uma pergunta", "text": "Quero fazer uma pergunta." },
+  { "id": "rapida-medo", "label": "Estou com medo", "text": "Estou com medo." },
+  { "id": "rapida-pausa", "label": "Preciso de uma pausa", "text": "Preciso de uma pausa." },
+  { "id": "rapida-responsavel", "label": "Quero falar com meu responsável", "text": "Quero falar com meu responsável." }
+]

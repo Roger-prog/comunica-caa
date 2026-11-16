@@ -29,6 +29,8 @@ def vocabulary():
         raise ValueError("Public audio vocabulary does not match the board catalog")
     entries = [(item["id"], item["label"]) for item in legacy]
     entries += [(item["id"], item["speechText"]) for item in core]
+    phrases = json.loads((data_dir / "default-quick-phrases.json").read_text(encoding="utf-8"))
+    entries += [(item["id"], item["text"]) for item in phrases]
     if not entries or len({item[0] for item in entries}) != len(entries):
         raise ValueError("Invalid built-in vocabulary")
     return entries

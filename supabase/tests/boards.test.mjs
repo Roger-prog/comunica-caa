@@ -174,6 +174,20 @@ test('PostgreSQL: board, authorized photos and immediate link revocation', async
     assert.equal(await as(PROFESSIONAL, () => size('public.caa_catalog_overrides')), 0);
   });
 
+  await t.test('reload preserves ordered Home and quick phrases only on the selected patient', async () => {
+    const settings = {
+      pageSize: 12, homeSymbols: ['agua', 'sim', 'nao'], favorites: ['dor'],
+      quickPhrasesEnabled: true, speakOnSelect: false, maxSentenceSymbols: 50,
+      quickPhrases: [{ id: 'teste', label: 'Pedir ajuda', text: 'Preciso de ajuda.' }],
+    };
+    assert.equal((await saveSettings(PROFESSIONAL, 2, settings)).rows[0].version, 3);
+    const load = (id) => as(id, () => db.query(
+      'select settings from public.caa_board_settings where crianca_id=$1', [CHILD],
+    ));
+    assert.deepEqual((await load(OWNER)).rows[0].settings, settings);
+    assert.deepEqual((await load(OTHER_OWNER)).rows, []);
+  });
+
   await t.test('linked professional can edit shared symbols but only delete their own', async () => {
     const { symbol } = await saveSymbol(OWNER);
     assert.equal(symbol.source, 'arasaac');

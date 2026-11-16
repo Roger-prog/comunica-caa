@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CustomSymbol, PatientBoard } from "../lib/patientBoardModel";
 import { DEFAULT_BOARD_SETTINGS } from "../lib/patientBoardModel";
 import { BoardManager } from "./BoardManager";
+import { DEFAULT_HOME_SYMBOL_IDS } from "../data/pictograms";
 
 const actions = vi.hoisted(() => ({
-  search: vi.fn(), saveSymbol: vi.fn(), saveSettings: vi.fn(), deleteSymbol: vi.fn(),
+  search: vi.fn(), saveSymbol: vi.fn(), saveSettings: vi.fn(), deleteSymbol: vi.fn(), saveOverride: vi.fn(),
 }));
 
 vi.mock("../lib/arasaac", () => ({
@@ -19,6 +20,7 @@ vi.mock("../lib/patientBoard", async (original) => ({
   saveCustomSymbol: actions.saveSymbol,
   saveBoardSettings: actions.saveSettings,
   deleteCustomSymbol: actions.deleteSymbol,
+  saveCatalogOverride: actions.saveOverride,
 }));
 
 const symbol: CustomSymbol = {
@@ -53,14 +55,22 @@ describe("Gerenciador da prancha", () => {
     const choice = await screen.findByRole("button", { name: "gato, pictograma 123" });
     expect(choice).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(choice);
+    expect(within(screen.getByRole("group", { name: "Prévia do símbolo" })).getByRole("img"))
+      .toHaveAttribute("src", "/api/arasaac-image?id=123");
+    fireEvent.change(screen.getByRole("combobox", { name: "Adicionar categoria" }), { target: { value: "animais" } });
+    expect(within(screen.getByRole("list", { name: "Categorias selecionadas" })).getByText("Animais")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Adicionar aos favoritos" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Mostrar no Início" }));
     fireEvent.click(screen.getByRole("button", { name: "Salvar símbolo" }));
     await waitFor(() => expect(updated).toHaveBeenCalledOnce());
     expect(actions.search).toHaveBeenLastCalledWith("gato", expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(actions.saveSymbol).toHaveBeenCalledWith("patient-1", null, expect.objectContaining({
-      label: "Meu gato", speechText: "Quero ver meu gato", arasaacId: 123,
+      label: "Meu gato", speechText: "Quero ver meu gato", arasaacId: 123, categories: expect.arrayContaining(["animais"]),
     }));
-    expect(actions.saveSettings).toHaveBeenCalledWith("patient-1", expect.objectContaining({ favorites: [symbol.id] }), 0);
+    expect(actions.saveSettings).toHaveBeenCalledWith("patient-1", expect.objectContaining({
+      favorites: [symbol.id],
+      homeSymbols: [...DEFAULT_HOME_SYMBOL_IDS, symbol.id],
+    }), 0);
     expect(screen.getByText("Símbolo criado.")).toBeInTheDocument();
   });
 
@@ -82,5 +92,52 @@ describe("Gerenciador da prancha", () => {
     fireEvent.click(within(confirm).getByRole("button", { name: "Confirmar exclusão" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Símbolo excluído. A remoção da foto ficou pendente.");
     expect(actions.deleteSymbol).toHaveBeenCalledExactlyOnceWith("patient-1", symbol);
+  });
+
+  it("separa palavras pendentes das associadas e salva apenas a troca de imagem do paciente", async () => {
+    actions.search.mockResolvedValue([
+      { id: 123, labels: ["Água"], imageUrl: "/api/arasaac-image?id=123" },
+      { id: 456, labels: ["Copo de água"], imageUrl: "/api/arasaac-image?id=456" },
+    ]);
+    actions.saveOverride.mockResolvedValue(undefined);
+    const updated = openBoard(empty);
+    fireEvent.click(screen.getByRole("button", { name: "Revisar catálogo" }));
+    const word = screen.getByRole("combobox", { name: "Palavra a revisar" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Situação do pictograma" }), { target: { value: "pending" } });
+    expect(within(word).getByRole("option", { name: /A · Conectores · Aguardando revisão/ })).toBeInTheDocument();
+    expect(within(word).queryByRole("option", { name: /^Água · Necessidades/ })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Situação do pictograma" }), { target: { value: "associated" } });
+    expect(within(word).getByRole("option", { name: /^Água · Necessidades · Pictograma do catálogo geral/ })).toBeInTheDocument();
+    fireEvent.change(word, { target: { value: "agua" } });
+    const current = screen.getByRole("group", { name: "Imagem atual" });
+    expect(within(current).getByRole("img")).toHaveAttribute("src", "/api/arasaac-image?id=2248");
+    expect(screen.getByRole("button", { name: "Salvar nesta prancha" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "gato" }));
+    expect(await screen.findByRole("button", { name: "Água, pictograma 123" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copo de água, pictograma 456" }));
+    const preview = screen.getByRole("group", { name: "Prévia da nova imagem" });
+    expect(within(preview).getByRole("img")).toHaveAttribute("src", "/api/arasaac-image?id=456");
+    expect(within(preview).getByText("Água")).toBeInTheDocument();
+    expect(screen.getByText("Necessidades", { selector: "dd" })).toBeInTheDocument();
+    expect(actions.saveOverride).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar nesta prancha" }));
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce());
+    expect(actions.saveOverride).toHaveBeenCalledExactlyOnceWith("patient-1", "agua", 456);
+    expect(screen.getByText("Pictograma atualizado nesta prancha.")).toHaveAttribute("role", "status");
+  });
+
+  it("permite criar pela revisão do catálogo e descarta o formulário ao trocar de paciente", () => {
+    const board = (patientId: string, patientName: string) =>
+      <BoardManager patientId={patientId} patientName={patientName} data={empty} userId="guardian-1" onChange={() => {}} />;
+    const view = render(board("patient-1", "Perfil A"));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar catálogo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar símbolo" }));
+    const form = screen.getByRole("form", { name: "Criar símbolo" });
+    fireEvent.change(within(form).getByRole("textbox", { name: "Nome do símbolo" }), { target: { value: "Símbolo do perfil A" } });
+    view.rerender(board("patient-2", "Perfil B"));
+    expect(screen.queryByRole("form", { name: "Criar símbolo" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Criar símbolo" }));
+    expect(screen.getByRole("textbox", { name: "Nome do símbolo" })).toHaveValue("");
+    expect(screen.getByRole("form", { name: "Criar símbolo" })).toHaveTextContent("Perfil B");
   });
 });

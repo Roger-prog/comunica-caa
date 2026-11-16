@@ -94,7 +94,7 @@ describe("ChildModePinDialog", () => {
         onCancel={onCancel}
       />,
     );
-    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+    fireEvent.change(screen.getByLabelText("PIN de saída"), {
       target: { value: "2468" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
@@ -102,7 +102,7 @@ describe("ChildModePinDialog", () => {
       "PIN incorreto. Tente novamente.",
     );
     expect(screen.getByRole("dialog")).toBeVisible();
-    expect(screen.getByLabelText("PIN do responsável")).toHaveValue("");
+    expect(screen.getByLabelText("PIN de saída")).toHaveValue("");
     expect(onSubmit).toHaveBeenCalledWith("2468");
     expect(onCancel).not.toHaveBeenCalled();
   });
@@ -121,7 +121,7 @@ describe("ChildModePinDialog", () => {
         onCancel={onCancel}
       />,
     );
-    expect(screen.getByLabelText("PIN do responsável")).toHaveFocus();
+    expect(screen.getByLabelText("PIN de saída")).toHaveFocus();
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(onCancel).toHaveBeenCalledOnce();
     expect(onSubmit).not.toHaveBeenCalled();
@@ -148,7 +148,7 @@ describe("ChildModePinDialog", () => {
         onCancel={onCancel}
       />,
     );
-    const input = screen.getByLabelText("PIN do responsável");
+    const input = screen.getByLabelText("PIN de saída");
     fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
     expect(screen.getByRole("button", { name: "Cancelar" })).toHaveFocus();
     fireEvent.keyDown(screen.getByRole("button", { name: "Cancelar" }), {
@@ -177,7 +177,7 @@ describe("ChildModePinDialog", () => {
         onCancel={onCancel}
       />,
     );
-    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+    fireEvent.change(screen.getByLabelText("PIN de saída"), {
       target: { value: "2468" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
@@ -202,9 +202,9 @@ describe("ChildModePinDialog", () => {
       />,
     );
     expect(
-      screen.getByRole("dialog", { name: "Sair do modo criança" }),
+      screen.getByRole("dialog", { name: "Sair do modo comunicação" }),
     ).toBeVisible();
-    expect(screen.getByLabelText("PIN do responsável")).toHaveFocus();
+    expect(screen.getByLabelText("PIN de saída")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled();
   });
 });

@@ -8,7 +8,8 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Tela inicial com vocabulário reduzido, navegação por categorias, favoritos e símbolos próprios.
 - Busca que reconhece acentos, variantes de escrita e palavras relacionadas.
 - Pictogramas oficiais do ARASAAC com indicação de origem e cartões com legenda quando a imagem aguarda revisão.
-- Composição de frases com até 12 símbolos, mantendo a ordem e as repetições escolhidas.
+- Composição de frases com limite configurável de 8 a 80 símbolos por paciente. A prancha mantém a ordem e as repetições escolhidas.
+- Frases rápidas opcionais e personalizáveis, com leitura direta ou adição ao compositor.
 - Leitura de cada símbolo e da frase completa.
 - Controles para remover um símbolo, desfazer a última adição, limpar a frase e interromper a reprodução.
 - Resposta visual ao toque e identificação do último símbolo selecionado.
@@ -34,7 +35,7 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Indicadores de utilização em períodos de 7 ou 30 dias.
 - Visualização da frequência de uso dos símbolos e das categorias.
 
-## Modo criança
+## Modo comunicação
 
 - Prancha com a frase, os pictogramas e o cadeado de saída.
 - Navegação e menus do responsável ocultos durante o uso.

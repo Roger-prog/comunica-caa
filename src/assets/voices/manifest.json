@@ -47,7 +47,17 @@
     "falta-de-ar": "Falta de ar",
     "tontura": "Tontura",
     "medico": "Médico",
-    "medicamento": "Medicamento"
+    "medicamento": "Medicamento",
+    "rapida-dor": "Estou com dor.",
+    "rapida-mal-estar": "Não estou me sentindo bem.",
+    "rapida-respirar": "Não consigo respirar direito.",
+    "rapida-repetir": "Pode repetir?",
+    "rapida-nao-entendi": "Não entendi.",
+    "rapida-ajuda": "Preciso de ajuda.",
+    "rapida-pergunta": "Quero fazer uma pergunta.",
+    "rapida-medo": "Estou com medo.",
+    "rapida-pausa": "Preciso de uma pausa.",
+    "rapida-responsavel": "Quero falar com meu responsável."
   },
   "clips": [
     {
@@ -234,6 +244,56 @@
       "file": "src/assets/voices/antonio/querer.mp3",
       "bytes": 7532,
       "sha256": "4150d2c80786863844c9ba6ee2a665177d8bc72643d5fe4e7cf096451fc1db25"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-ajuda.mp3",
+      "bytes": 12284,
+      "sha256": "4f55b6a4e7b0b391f991210688944cb8ec867b461c8b4b2e1e728df15eb3fe34"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-dor.mp3",
+      "bytes": 10556,
+      "sha256": "54ac2468e4edb2c24430413fc227a772f1e21cd3af97e5134c54e0e96f2f7662"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-mal-estar.mp3",
+      "bytes": 14444,
+      "sha256": "1a3df526e1121ab4f3bca0eb721e9df85fe408bb9fe871dd9615b59f211bbaca"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-medo.mp3",
+      "bytes": 10844,
+      "sha256": "30fe72861a9973b930ae5f539177a8b10e1ea49dbb6d8a3145cfb237fd5c37da"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-nao-entendi.mp3",
+      "bytes": 10124,
+      "sha256": "0b462e06b7a4913d6e5fb52d5d502371b30eacc575847a8d045071ff41ba3ffb"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-pausa.mp3",
+      "bytes": 12860,
+      "sha256": "d59e9318a8979e2a70ce97a45bc16631ef1df61a768d618af6d588083ed87d73"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-pergunta.mp3",
+      "bytes": 13292,
+      "sha256": "a3179db0a3fa85fd7cf6733a5b91fc5fabd83238be9043a571486b2d22393efd"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-repetir.mp3",
+      "bytes": 10124,
+      "sha256": "4efbaa92a41f5e962380ce6ca967e59d2a1875d0e1d9ee705c9eebd940c61e0f"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-respirar.mp3",
+      "bytes": 15740,
+      "sha256": "8affa17f61f48a6f817289031c6fcd098ca5131fc3b13ff5c807f47821873324"
+    },
+    {
+      "file": "src/assets/voices/antonio/rapida-responsavel.mp3",
+      "bytes": 16604,
+      "sha256": "71fbfa00690104a94ab2e9c841636b8686b907308e5514631cd0cca42bfad873"
     },
     {
       "file": "src/assets/voices/antonio/sim.mp3",
@@ -444,6 +504,56 @@
       "file": "src/assets/voices/francisca/querer.mp3",
       "bytes": 7820,
       "sha256": "7a2ddba0e2a88e8e26f7a0d6ffa96483223606a1cd0f742cc2d43c213853dd00"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-ajuda.mp3",
+      "bytes": 12140,
+      "sha256": "97b814b31568a8db1287ce08199c0e4172c9e98d9f5b504bcb0104d777dc3edf"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-dor.mp3",
+      "bytes": 9980,
+      "sha256": "2ca3c98037e97705bd97c131ae281626504c0b08dfe6989a21c5b0c23b9b7b51"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-mal-estar.mp3",
+      "bytes": 13436,
+      "sha256": "818a31fc2f7a7a2ee2c8eb0beb3785e0857fe9dfc1c026a4cf3f7fcbdac2530d"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-medo.mp3",
+      "bytes": 10556,
+      "sha256": "9d27487bccf3d9825c080fd52f9d552eeabd19c2741787e7dde2253978f08ead"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-nao-entendi.mp3",
+      "bytes": 10412,
+      "sha256": "d7425a231aa90809189f88ece408eb6fa69f421e25846ac803e7af757208a19f"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-pausa.mp3",
+      "bytes": 12716,
+      "sha256": "23ceaf14e2d122fe1a9c36de75fc45bb1fabe213e4f0c851310c47476434d758"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-pergunta.mp3",
+      "bytes": 13724,
+      "sha256": "ba28ba642b8e8989ff2b7b3960d2611d47df20d2cb82503494d85784ecba3fdc"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-repetir.mp3",
+      "bytes": 10556,
+      "sha256": "7f12f9a174a1b45d667f92f2514363b3198eb6f67c5dc9e1c9a0567fd7cb7f33"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-respirar.mp3",
+      "bytes": 15884,
+      "sha256": "bfae7c2b00fb2aef6b6df5d2b68cfd4c4be6a6bf5709cfc29bba652a335d68d0"
+    },
+    {
+      "file": "src/assets/voices/francisca/rapida-responsavel.mp3",
+      "bytes": 15452,
+      "sha256": "869f27b9462e7abe5d56cc82b08d00eb0a6eed20865f3e04851ad0fbeec1fdc4"
     },
     {
       "file": "src/assets/voices/francisca/sim.mp3",

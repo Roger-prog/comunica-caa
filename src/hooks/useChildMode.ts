@@ -43,13 +43,13 @@ export function useChildMode() {
     if (document.fullscreenElement || fullscreenPending.current) return;
     if (typeof root.requestFullscreen !== "function") {
       setFullscreenNotice(
-        "Tela cheia indisponível neste navegador. O modo criança continua ativo.",
+        "Tela cheia indisponível neste navegador. O modo comunicação continua ativo.",
       );
       return;
     }
     fullscreenPending.current = true;
     try {
-      // Invoke before any await: browsers require the responsible adult's gesture.
+      // Invoke before any await: browsers require a direct user gesture.
       const request = root.requestFullscreen();
       void Promise.resolve(request)
         .then(() => {
@@ -65,7 +65,7 @@ export function useChildMode() {
         .catch(() => {
           if (mounted.current && fullscreenWanted.current) {
             setFullscreenNotice(
-              "Não foi possível abrir a tela cheia. O modo criança continua ativo.",
+              "Não foi possível abrir a tela cheia. O modo comunicação continua ativo.",
             );
           }
         })
@@ -75,7 +75,7 @@ export function useChildMode() {
     } catch {
       fullscreenPending.current = false;
       setFullscreenNotice(
-        "Não foi possível abrir a tela cheia. O modo criança continua ativo.",
+        "Não foi possível abrir a tela cheia. O modo comunicação continua ativo.",
       );
     }
   }, []);
@@ -85,7 +85,7 @@ export function useChildMode() {
     const onFullscreenChange = () => {
       setIsFullscreen(document.fullscreenElement === document.documentElement);
       if (!document.fullscreenElement) fullscreenOwned.current = false;
-      // Esc or browser controls only change fullscreen, never the child lock.
+      // Esc or browser controls only change fullscreen, never the PIN lock.
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {

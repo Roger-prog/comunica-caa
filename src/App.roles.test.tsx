@@ -124,7 +124,7 @@ describe("App: real account roles and authentication routes", () => {
       const initial = auth();
       const { rerender } = render(routed(initial, "/prancha"));
       fireEvent.click(
-        screen.getByRole("button", { name: "Iniciar modo criança" }),
+        screen.getByRole("button", { name: "Iniciar modo comunicação" }),
       );
       fireEvent.change(screen.getByLabelText("Novo PIN"), {
         target: { value: "4826" },
@@ -139,7 +139,7 @@ describe("App: real account roles and authentication routes", () => {
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
       );
       expect(
-        screen.getByRole("button", { name: "Desbloquear modo criança" }),
+        screen.getByRole("button", { name: "Sair do modo comunicação" }),
       ).toBeInTheDocument();
       rerender(
         routed(
@@ -162,7 +162,7 @@ describe("App: real account roles and authentication routes", () => {
         }),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Desbloquear modo criança" }),
+        screen.queryByRole("button", { name: "Sair do modo comunicação" }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Falar Água" }),
@@ -195,7 +195,7 @@ describe("App: real account roles and authentication routes", () => {
   it("returns guardians to the board when they enter the professional URL", () => {
     render(routed(auth(), "/profissional"));
     expect(
-      screen.getByRole("heading", { name: "Espaço para se expressar" }),
+      screen.getByRole("heading", { name: "Prancha de comunicação" }),
     ).toBeInTheDocument();
     const navigation = within(
       screen.getByRole("navigation", { name: "Navegação principal" }),

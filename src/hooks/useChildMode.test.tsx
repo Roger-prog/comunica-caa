@@ -115,7 +115,7 @@ describe("useChildMode", () => {
     expect(result.current.dialogMode).toBeNull();
   });
 
-  it("keeps child mode locked after a wrong PIN or a cancelled unlock dialog", async () => {
+  it("keeps communication mode locked after a wrong PIN or a cancelled unlock dialog", async () => {
     const { result } = renderMode();
     await lock(result);
     act(() => result.current.requestUnlock());
@@ -175,7 +175,7 @@ describe("useChildMode", () => {
     const { result } = renderMode();
     await lock(result);
     expect(result.current.isFullscreen).toBe(false);
-    expect(result.current.fullscreenNotice).toBeTruthy();
+    expect(result.current.fullscreenNotice).toContain("O modo comunicação continua ativo.");
     act(() => result.current.requestUnlock());
     await act(async () => {
       expect(await result.current.submitPin(TEST_PIN)).toBe(true);
@@ -188,7 +188,7 @@ describe("useChildMode", () => {
     const { result } = renderMode();
     await lock(result);
     expect(result.current.isFullscreen).toBe(false);
-    expect(result.current.fullscreenNotice).toBeTruthy();
+    expect(result.current.fullscreenNotice).toContain("O modo comunicação continua ativo.");
     expect(result.current.isChildMode).toBe(true);
   });
 

@@ -143,7 +143,7 @@ describe("App: jornadas de autenticação simulada", () => {
 
     expect(currentRoute()).toBe("/prancha");
     expect(
-      screen.getByRole("heading", { name: "Espaço para se expressar" }),
+      screen.getByRole("heading", { name: "Prancha de comunicação" }),
     ).toBeInTheDocument();
     expect(JSON.parse(sessionStorage.getItem(MOCK_AUTH_STORAGE_KEY)!)).toEqual(
       MOCK_USER,

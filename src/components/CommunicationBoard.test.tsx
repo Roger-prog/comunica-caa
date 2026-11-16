@@ -140,6 +140,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
     fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Limpar frase" }));
     expect(props.speech.stop).toHaveBeenCalledOnce();
     expect(prefetch).toHaveBeenCalledOnce();
   });
@@ -243,25 +244,33 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(within(sentence).getAllByText("Mais", { exact: true })).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
+    const confirmation = screen.getByRole("group", { name: "Confirmar limpeza da frase" });
+    expect(within(confirmation).getByRole("button", { name: "Manter frase" })).toHaveFocus();
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Manter frase" }));
+    expect(play).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Limpar frase" }));
     fireEvent.click(play);
     expect(play).toBeDisabled();
     expect(record).toHaveBeenCalledTimes(6);
     expect(props.speech.speak).toHaveBeenCalledTimes(2);
   });
 
-  it("records only the twelve symbols still present in the phrase", () => {
+  it("keeps more than twelve symbols and preserves the beginning at the configured limit", () => {
     const { props } = fixture();
     const record = vi.fn();
-    render(<CommunicationBoard {...props} onSelect={record} />);
+    render(<CommunicationBoard {...props} onSelect={record} settings={{ ...props.settings!, maxSentenceSymbols: 13 }} />);
     fireEvent.click(screen.getByRole("button", { name: "Falar Mais" }));
     for (let index = 0; index < 12; index++) {
       fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
     }
+    fireEvent.click(screen.getByRole("button", { name: "Falar Olá" }));
+    expect(screen.getByText(/limite de 13 símbolos/)).toBeInTheDocument();
     record.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
-    expect(record).toHaveBeenCalledTimes(12);
-    expect(record.mock.calls.every(([item]) => item.label === "Água")).toBe(true);
+    expect(record).toHaveBeenCalledTimes(13);
+    expect(record.mock.calls.map(([item]) => item.label)).toEqual(["Mais", ...Array(12).fill("Água")]);
   });
 
   it("does not register a phrase when playback is unavailable", () => {
@@ -299,6 +308,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
       voiceURI: "pt-BR-AntonioNeural", rate: 0.8,
     });
     fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Limpar frase" }));
     expect(preparations[3]).toHaveBeenCalledOnce();
     expect(prepareSentence).toHaveBeenCalledTimes(4);
     fireEvent.click(screen.getByRole("button", { name: "Falar Olá" }));
@@ -349,5 +359,41 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(props.onSelect).not.toHaveBeenCalled();
     expect(prepareSentence).not.toHaveBeenCalled();
     expect(prefetch.mock.calls.flatMap(([words]) => words)).not.toContain(custom.spokenText);
+  });
+
+  it("balances a 13-card home across two pages without changing order or losing the phrase", () => {
+    const { props } = fixture();
+    const ordered = PICTOGRAMS.slice(0, 13).reverse();
+    render(<CommunicationBoard {...props} settings={{
+      ...props.settings!, pageSize: 12, homeSymbols: ordered.map((item) => item.id),
+    }} />);
+    const cardLabels = () => screen.getAllByRole("button", { name: /^Falar / })
+      .map((button) => button.getAttribute("aria-label"));
+    expect(cardLabels()).toEqual(ordered.slice(0, 7).map((item) => `Falar ${item.label}`));
+    fireEvent.click(screen.getByRole("button", { name: `Falar ${ordered[0].label}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
+    expect(cardLabels()).toEqual(ordered.slice(7).map((item) => `Falar ${item.label}`));
+    expect(screen.getByText("Página 2 de 2")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" }))
+      .getByText(ordered[0].label)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Necessidades" }));
+    expect(screen.queryByRole("button", { name: "Próxima página" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Início" }));
+    expect(screen.getByText("Página 1 de 2")).toBeInTheDocument();
+  });
+
+  it("plays a quick phrase directly or adds it silently and keeps the text private", () => {
+    const { props } = fixture();
+    const quickPhrase = { id: "local", label: "Pergunta", text: "Quero perguntar uma coisa." };
+    render(<CommunicationBoard {...props} settings={{ ...props.settings!, quickPhrases: [quickPhrase] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Frases rápidas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ouvir: Pergunta" }));
+    expect(props.speech.speak).toHaveBeenCalledWith(quickPhrase.text, expect.objectContaining({ deviceOnly: true }));
+    vi.mocked(props.speech.speak).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar à frase: Pergunta" }));
+    expect(props.speech.speak).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
+    expect(props.speech.speak).toHaveBeenCalledWith(quickPhrase.text, expect.objectContaining({ deviceOnly: true }));
+    expect(props.onSelect).not.toHaveBeenCalled();
   });
 });

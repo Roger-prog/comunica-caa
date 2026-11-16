@@ -36,7 +36,7 @@ vi.mock("./hooks/useSpeech", () => ({
   }),
 }));
 
-describe("App: PIN e interface do modo criança", () => {
+describe("App: PIN e interface do modo comunicação", () => {
   let originalRequest: PropertyDescriptor | undefined;
   let originalExit: PropertyDescriptor | undefined;
   let originalElement: PropertyDescriptor | undefined;
@@ -126,7 +126,7 @@ describe("App: PIN e interface do modo criança", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Iniciar modo criança" }),
+      screen.getByRole("button", { name: "Iniciar modo comunicação" }),
     );
     fireEvent.change(screen.getByLabelText("Novo PIN"), {
       target: { value: "4826" },
@@ -162,10 +162,10 @@ describe("App: PIN e interface do modo criança", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Desbloquear modo criança",
+        name: "Sair do modo comunicação",
       }),
     );
-    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+    fireEvent.change(screen.getByLabelText("PIN de saída"), {
       target: { value: "8642" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
@@ -178,10 +178,10 @@ describe("App: PIN e interface do modo criança", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Desbloquear modo criança",
+        name: "Sair do modo comunicação",
       }),
     );
-    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+    fireEvent.change(screen.getByLabelText("PIN de saída"), {
       target: { value: "4826" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
@@ -225,7 +225,7 @@ describe("App: PIN e interface do modo criança", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Iniciar modo criança" }),
+      screen.getByRole("button", { name: "Iniciar modo comunicação" }),
     );
     fireEvent.change(screen.getByLabelText("Novo PIN"), {
       target: { value: "4826" },
@@ -247,7 +247,7 @@ describe("App: PIN e interface do modo criança", () => {
       );
       await waitFor(() => {
         expect(
-          screen.getByRole("button", { name: "Desbloquear modo criança" }),
+          screen.getByRole("button", { name: "Sair do modo comunicação" }),
         ).toBeInTheDocument();
         expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
         expect(
@@ -259,16 +259,16 @@ describe("App: PIN e interface do modo criança", () => {
     }
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Desbloquear modo criança" }),
+      screen.getByRole("button", { name: "Sair do modo comunicação" }),
     );
-    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+    fireEvent.change(screen.getByLabelText("PIN de saída"), {
       target: { value: "8642" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("PIN incorreto");
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("PIN do responsável"), {
+    fireEvent.change(screen.getByLabelText("PIN de saída"), {
       target: { value: "4826" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));

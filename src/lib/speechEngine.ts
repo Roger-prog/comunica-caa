@@ -71,7 +71,6 @@ export function createWebSpeechEngine(localOnly = false): SpeechEngine {
     },
     speak(text, options, callbacks) {
       if (!synthesis) throw new Error("speech_unavailable");
-      const utterance = new window.SpeechSynthesisUtterance(text);
       const voices = getVoices();
       const voice =
         voices.find((item) => item.voiceURI === options.voiceURI) ??
@@ -81,28 +80,43 @@ export function createWebSpeechEngine(localOnly = false): SpeechEngine {
         callbacks.onError("failed");
         return;
       }
-      utterance.lang = voice?.lang ?? "pt-BR";
-      if (voice) utterance.voice = voice;
-      utterance.rate = bounded(options.rate, 1, 0.5, 1.5);
-      utterance.volume = bounded(options.volume, 1, 0, 1);
-      utterance.onend = () => {
-        if (currentUtterance === utterance) currentUtterance = null;
-        callbacks.onEnd();
-      };
-      utterance.onerror = (event) => {
-        if (currentUtterance === utterance) currentUtterance = null;
-        const reason = event.error;
-        callbacks.onError(
-          reason === "not-allowed" ||
-            reason === "canceled" ||
-            reason === "interrupted"
-            ? reason
-            : "failed",
-        );
-      };
-      // Retain native utterances and speak during the same user gesture on Safari.
-      currentUtterance = utterance;
-      synthesis.speak(utterance);
+      const chunks: string[] = [];
+      let remaining = text.trim();
+      while (remaining.length > 140) {
+        let boundary = remaining.lastIndexOf(" ", 140);
+        if (boundary < 1) boundary = remaining.indexOf(" ", 140);
+        if (boundary < 1) break;
+        chunks.push(remaining.slice(0, boundary));
+        remaining = remaining.slice(boundary + 1).trimStart();
+      }
+      if (remaining) chunks.push(remaining);
+      if (!chunks.length) { callbacks.onEnd(); return; }
+      function playChunk(index: number) {
+        const utterance = new window.SpeechSynthesisUtterance(chunks[index]);
+        utterance.lang = voice?.lang ?? "pt-BR";
+        if (voice) utterance.voice = voice;
+        utterance.rate = bounded(options.rate, 1, 0.5, 1.5);
+        utterance.volume = bounded(options.volume, 1, 0, 1);
+        utterance.onend = () => {
+          if (currentUtterance !== utterance) return;
+          currentUtterance = null;
+          if (index + 1 < chunks.length) playChunk(index + 1);
+          else callbacks.onEnd();
+        };
+        utterance.onerror = (event) => {
+          if (currentUtterance !== utterance) return;
+          currentUtterance = null;
+          const reason = event.error;
+          callbacks.onError(reason === "not-allowed" || reason === "canceled" || reason === "interrupted" ? reason : "failed");
+        };
+        currentUtterance = utterance;
+        try { synthesis!.speak(utterance); }
+        catch {
+          currentUtterance = null;
+          callbacks.onError("failed");
+        }
+      }
+      playChunk(0);
     },
     cancel() {
       if (currentUtterance) {

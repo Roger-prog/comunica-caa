@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { Eye, EyeOff, ImageIcon, Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, ImageIcon, Pencil, Plus, Trash2, X } from "lucide-react";
 import { CATEGORY_OPTIONS, DEFAULT_HOME_SYMBOL_IDS, getCategoryLabel } from "../data/pictograms";
 import { deleteCustomSymbol, saveBoardSettings, saveCustomSymbol, symbolDraft,
   type CustomSymbol, type PatientBoard, type SymbolDraft } from "../lib/patientBoard";
@@ -40,8 +40,12 @@ function SymbolForm({ data, patientId, patientName, symbol, onCancel, onSaved }:
   const [home, setHome] = useState<boolean | null>(null);
   const [showArasaac, setShowArasaac] = useState(false);
   const didSubmit = useRef(false);
+  const galleryButton = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
   const labelId = useId();
   const speechId = useId();
+  const categoryId = useId();
+  const availableCategories = CATEGORY_OPTIONS.filter(({ id }) => !draft.categories.includes(id));
 
   function set<K extends keyof SymbolDraft>(key: K, value: SymbolDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -84,10 +88,13 @@ function SymbolForm({ data, patientId, patientName, symbol, onCancel, onSaved }:
   }
 
   const fallback = <ImageIcon aria-hidden="true" size={30} className="text-stone-500" />;
-  return <form className="space-y-4 rounded-2xl border border-brand-100 bg-brand-50/40 p-4" onSubmit={(event) => void submit(event)}>
+  const label = draft.label.trim();
+  const spokenText = draft.speechText.trim() || label;
+  const hasImage = Boolean(draft.photo || draft.imagePath || draft.arasaacId);
+  return <form className="space-y-4 rounded-2xl border border-brand-100 bg-brand-50/40 p-4" aria-labelledby={titleId} onSubmit={(event) => void submit(event)}>
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h3 className="font-semibold">{symbol ? "Editar símbolo" : "Criar símbolo"}</h3>
-      <p className="rounded-full bg-white px-3 py-2 text-sm">Paciente: <strong>{patientName}</strong></p>
+      <h3 id={titleId} className="font-semibold">{symbol ? "Editar símbolo" : "Criar símbolo"}</h3>
+      <p className="min-w-0 break-words text-sm text-stone-700">Paciente: <strong>{patientName}</strong></p>
     </div>
     <fieldset disabled={pending} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -101,32 +108,54 @@ function SymbolForm({ data, patientId, patientName, symbol, onCancel, onSaved }:
         </div>
       </div>
 
-      <div className="space-y-3">
-        <h4 className="text-sm font-semibold">Imagem do símbolo (obrigatória)</h4>
-        <PhotoEditor disabled={pending} setBusy={setPhotoPending} onPhoto={(photo) => {
-          setDraft((current) => ({ ...current, photo, photoAuthorized: false, arasaacId: null, imagePath: null }));
-          setShowArasaac(false);
-        }} />
-        {draft.photo && <label className="flex items-start gap-3 rounded-lg bg-white p-3 text-sm">
-          <input type="checkbox" className="mt-1 size-4 shrink-0 accent-brand-600" required checked={draft.photoAuthorized} onChange={(event) => set("photoAuthorized", event.target.checked)} />
-          Confirmo que tenho autorização para usar esta imagem e compartilhá-la com os responsáveis e profissionais vinculados a este paciente.
-        </label>}
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="button-secondary" disabled={photoPending} aria-expanded={showArasaac} onClick={() => setShowArasaac((value) => !value)}>{showArasaac ? "Fechar galeria" : "Escolher pictograma ARASAAC"}</button>
-          {(draft.photo || draft.imagePath || draft.arasaacId) && <button type="button" className="button-secondary" disabled={photoPending} onClick={() => setDraft((current) => ({ ...current, photo: null, imagePath: null, arasaacId: null, photoAuthorized: false }))}>Remover imagem</button>}
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(9rem,0.55fr)]">
+        <div className="min-w-0 space-y-3">
+          <h4 className="text-sm font-semibold">Imagem do símbolo (obrigatória)</h4>
+          {!showArasaac && <PhotoEditor disabled={pending} setBusy={setPhotoPending} onPhoto={(photo) => {
+            setDraft((current) => ({ ...current, photo, photoAuthorized: false, arasaacId: null, imagePath: null }));
+          }} />}
+          <button ref={galleryButton} type="button" className="button-secondary" disabled={photoPending} aria-expanded={showArasaac} onClick={() => setShowArasaac((value) => !value)}>
+            {showArasaac ? "Fechar galeria e voltar às fotos" : "Escolher pictograma ARASAAC"}
+          </button>
+          {showArasaac && <ArasaacPicker disabled={pending} selectedId={draft.arasaacId} onSelect={(id) => {
+            setDraft((current) => ({ ...current, arasaacId: id, photo: null, imagePath: null, photoAuthorized: false }));
+            setShowArasaac(false);
+            galleryButton.current?.focus();
+          }} />}
+          {draft.photo && <label className="flex min-h-11 items-start gap-3 rounded-lg bg-white p-3 text-sm">
+            <input type="checkbox" className="mt-1 size-4 shrink-0 accent-brand-600" required checked={draft.photoAuthorized} onChange={(event) => set("photoAuthorized", event.target.checked)} />
+            Confirmo que tenho autorização para usar esta imagem e compartilhá-la com os responsáveis e profissionais autorizados neste perfil.
+          </label>}
         </div>
-        {showArasaac && <ArasaacPicker disabled={pending || photoPending} selectedId={draft.arasaacId} onSelect={(id) => setDraft((current) => ({ ...current, arasaacId: id, photo: null, imagePath: null, photoAuthorized: false }))} />}
+        <div role="group" aria-label="Prévia do símbolo" className="flex min-w-0 flex-wrap items-center gap-3 self-start rounded-xl border border-stone-200 bg-white p-3">
+          <div className="grid size-20 shrink-0 place-items-center">{draft.photo ? <PhotoPreview photo={draft.photo} />
+            : draft.imagePath ? <PatientPhoto path={draft.imagePath} alt="Prévia da foto do símbolo" fallback={fallback} className="size-20 rounded-xl object-cover" />
+              : draft.arasaacId ? <ArasaacImage id={draft.arasaacId} alt="Prévia do pictograma escolhido" fallback={fallback} className="size-20 object-contain" /> : fallback}</div>
+          <div className="min-w-0 break-words">
+            <p className="text-xs text-stone-600">Prévia do símbolo</p>
+            <p className="font-semibold">{label || "Nome do símbolo"}</p>
+            {spokenText && spokenText !== label && <p className="text-sm text-stone-600">{spokenText}</p>}
+          </div>
+        </div>
       </div>
 
       <fieldset className="space-y-2 rounded-2xl border border-stone-200 bg-white p-3">
         <legend className="px-1 text-sm font-semibold">Categorias do símbolo</legend>
-        <p className="text-xs text-stone-600">Escolha até oito categorias.</p>
-        <div className="grid grid-cols-2 gap-x-2 sm:grid-cols-3">
-          {CATEGORY_OPTIONS.map(({ id, label }) => <label key={id} className="flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" className="size-4 shrink-0 accent-brand-600" checked={draft.categories.includes(id)} disabled={draft.categories.length >= 8 && !draft.categories.includes(id)}
-              onChange={(event) => set("categories", event.target.checked ? [...draft.categories, id] : draft.categories.filter((category) => category !== id))} /> {label}
-          </label>)}
-        </div>
+        {draft.categories.length > 0 && <ul className="flex min-w-0 flex-wrap gap-2" aria-label="Categorias selecionadas">
+          {draft.categories.map((id) => <li key={id} className="flex max-w-full items-center gap-1 rounded-xl bg-brand-50 pl-3 text-sm text-brand-700">
+            <span className="min-w-0 break-words">{getCategoryLabel(id)}</span>
+            <button type="button" className="grid size-11 shrink-0 place-items-center rounded-xl hover:bg-brand-100" aria-label={`Retirar categoria ${getCategoryLabel(id)}`} onClick={() => set("categories", draft.categories.filter((category) => category !== id))}>
+              <X size={16} aria-hidden="true" />
+            </button>
+          </li>)}
+        </ul>}
+        <label htmlFor={categoryId} className="block text-sm font-medium">Adicionar categoria</label>
+        <select id={categoryId} className="input-field" value="" disabled={draft.categories.length >= 8} onChange={(event) => {
+          if (event.target.value) set("categories", [...draft.categories, event.target.value]);
+        }}>
+          <option value="">{draft.categories.length >= 8 ? "Limite de oito categorias atingido" : "Selecione uma categoria"}</option>
+          {availableCategories.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
+        </select>
       </fieldset>
 
       <div className="flex flex-wrap gap-x-5">
@@ -135,33 +164,24 @@ function SymbolForm({ data, patientId, patientName, symbol, onCancel, onSaved }:
       </div>
     </fieldset>
 
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-stone-200 bg-white p-3">
-      {draft.photo ? <PhotoPreview photo={draft.photo} />
-        : draft.imagePath ? <PatientPhoto path={draft.imagePath} alt="" fallback={fallback} className="size-20 rounded-xl object-cover" />
-          : draft.arasaacId ? <ArasaacImage id={draft.arasaacId} alt="" fallback={fallback} className="size-20 object-contain" /> : fallback}
-      <div className="min-w-0 break-words">
-        <p className="text-xs text-stone-600">Prévia · {draft.arasaacId ? "Pictograma ARASAAC" : "Personalizado"}</p>
-        <p className="font-semibold">{draft.label.trim() || "Nome do símbolo"}</p>
-        {draft.speechText && <p className="text-sm text-stone-600">{draft.speechText}</p>}
-      </div>
-    </div>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     <div className="flex flex-wrap gap-2">
-      <button type="submit" className="button-primary" disabled={pending || photoPending}>{pending ? "Salvando…" : "Salvar símbolo"}</button>
+      <button type="submit" className="button-primary" disabled={pending || photoPending || !label || !hasImage || draft.categories.length === 0}>{pending ? "Salvando…" : "Salvar símbolo"}</button>
       <button type="button" className="button-secondary" onClick={onCancel} disabled={pending}>Cancelar</button>
     </div>
   </form>;
 }
 
-export function BoardSymbolManager({ data, patientId, patientName, userId, canDeleteAny, onChange }: {
+export function BoardSymbolManager({ data, patientId, patientName, userId, canDeleteAny, onChange, initialView = "active" }: {
   data: PatientBoard; patientId: string; patientName: string; userId: string; canDeleteAny: boolean; onChange: () => void;
+  initialView?: "active" | "hidden" | "create";
 }) {
-  const [editing, setEditing] = useState<{ symbol: CustomSymbol | null } | null>(null);
+  const [editing, setEditing] = useState<{ symbol: CustomSymbol | null } | null>(() => initialView === "create" && data.symbols.length < 250 ? { symbol: null } : null);
   const [action, setAction] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ message: string; warning: boolean } | null>(null);
   const [page, setPage] = useState(0);
-  const [showHidden, setShowHidden] = useState(false);
+  const [showHidden, setShowHidden] = useState(initialView === "hidden");
   const list = data.symbols.filter((symbol) => symbol.hidden === showHidden);
   const pages = Math.max(1, Math.ceil(list.length / 10));
   const currentPage = Math.min(page, pages - 1);

@@ -76,7 +76,7 @@ export function AboutPage() {
           <h2 className="mt-4 text-lg font-semibold">Prancha de comunicação</h2>
           <p className="mt-3 text-sm leading-7 text-stone-600">
             Símbolos organizados por categorias, busca por palavras e frases
-            formadas na ordem escolhida. O modo criança concentra a interface
+            formadas na ordem escolhida. O modo comunicação concentra a interface
             na comunicação e protege a saída com um PIN.
           </p>
         </article>

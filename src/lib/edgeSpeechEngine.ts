@@ -7,8 +7,10 @@ import type {
 } from "./speechEngine";
 import { getBundledSpeechAudio } from "../data/bundledSpeech";
 import { createLocalPhraseCache } from "./localPhrasePlayer";
+import { MAX_SENTENCE_SYMBOLS } from "./patientBoardModel";
 
 const MAX_TEXT_LENGTH = 1_000;
+const PHRASE_CHUNK_SIZE = 8;
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
 const CACHE_MAX_ENTRIES = 64;
@@ -133,7 +135,7 @@ export function createEdgeSpeechEngine(
 
   function requestFor(text: string, options: SpeechOptions): AudioRequest | null {
     const message = text.trim();
-    if (!message || Array.from(message).length > MAX_TEXT_LENGTH) return null;
+    if (!message || Array.from(message).length > (options.bundledOnly ? 12_000 : MAX_TEXT_LENGTH)) return null;
     const voice = VOICES.some((item) => item.voiceURI === options.voiceURI)
       ? options.voiceURI!
       : VOICES[0].voiceURI;
@@ -159,7 +161,7 @@ export function createEdgeSpeechEngine(
   }
 
   function phraseClips(texts: readonly string[], request: AudioRequest) {
-    if (!localPhrases.supported || texts.length < 2 || texts.length > 12) return;
+    if (!localPhrases.supported || texts.length < 2 || texts.length > MAX_SENTENCE_SYMBOLS) return;
     const labels = texts.map((text) => text.trim());
     if (labels.some((text) => !text) || labels.join(" ") !== request.text) return;
     const clips: Array<{ key: string; blob: Blob }> = [];
@@ -174,8 +176,9 @@ export function createEdgeSpeechEngine(
 
   function prepareSentence(texts: readonly string[], options: SpeechOptions = {}) {
     if (!supported) return () => {};
-    const request = requestFor(texts.join(" "), options);
-    const clips = request && phraseClips(texts, request);
+    const firstChunk = texts.length > 12 ? texts.slice(0, PHRASE_CHUNK_SIZE) : texts;
+    const request = requestFor(firstChunk.join(" "), options);
+    const clips = request && phraseClips(firstChunk, request);
     if (!clips || localPhrases.get(clips)) return () => {};
     const timer = setTimeout(() => {
       sentencePreparations.delete(timer);
@@ -394,26 +397,52 @@ export function createEdgeSpeechEngine(
     }
   }
 
-  function playBlob(playback: Playback, blob: Blob, volume: number, playbackRate = 1) {
+  function playBlob(playback: Playback, blob: Blob, volume: number, playbackRate = 1, next?: () => void) {
     if (!isCurrent(playback)) return;
     playback.releaseDownload?.();
     playback.releaseDownload = undefined;
-    const audio = new Audio();
+    const audio = playback.audio ?? new Audio();
     playback.audio = audio;
+    if (playback.objectUrl) URL.revokeObjectURL(playback.objectUrl);
     playback.objectUrl = URL.createObjectURL(blob);
     audio.preload = "auto";
     audio.volume = volume;
+    audio.src = playback.objectUrl;
     audio.playbackRate = playbackRate;
     audio.preservesPitch = true;
-    audio.src = playback.objectUrl;
     audio.onended = () => {
       if (!isCurrent(playback)) return;
+      if (next) {
+        next();
+        return;
+      }
       dispose(playback);
       playback.callbacks.onEnd();
     };
     audio.onerror = () => fail(playback, "failed");
     // Cache hits execute play() in the original click, before any await.
     return play(playback);
+  }
+
+  function playClips(
+    playback: Playback, clips: NonNullable<ReturnType<typeof phraseClips>>,
+    volume: number, rate: number,
+  ) {
+    const size = clips.length > 12 ? PHRASE_CHUNK_SIZE : clips.length;
+    function playChunk(offset: number): void | Promise<void> {
+      if (!isCurrent(playback)) return;
+      const chunk = clips.slice(offset, offset + size);
+      const next = offset + size < clips.length ? () => { void playChunk(offset + size); } : undefined;
+      const playReady = (blob: Blob) => {
+        if (!isCurrent(playback)) return;
+        try { return playBlob(playback, blob, volume, rate, next); }
+        catch { fail(playback, "failed"); }
+      };
+      const cachedPhrase = localPhrases.get(chunk);
+      if (cachedPhrase) return playReady(cachedPhrase);
+      return localPhrases.prepare(chunk).then(playReady, () => fail(playback, "failed"));
+    }
+    return playChunk(0);
   }
 
   return {
@@ -478,20 +507,7 @@ export function createEdgeSpeechEngine(
           return playBlob(playback, recording, volume, request.rate);
         }
         const clips = options.segments && phraseClips(options.segments, request);
-        if (clips) {
-          const phrase = localPhrases.get(clips);
-          if (phrase) return playBlob(playback, phrase, volume, request.rate);
-          // A very fast tap may precede the composition effect: finish locally,
-          // with no HTTP request, and ignore completion after stop/new speech.
-          return localPhrases.prepare(clips).then(
-            (ready) => {
-              if (!isCurrent(playback)) return;
-              try { return playBlob(playback, ready, volume, request.rate); }
-              catch { fail(playback, "failed"); }
-            },
-            () => fail(playback, "failed"),
-          );
-        }
+        if (clips) return playClips(playback, clips, volume, request.rate);
         if (options.bundledOnly) {
           fail(playback, "failed");
           return;

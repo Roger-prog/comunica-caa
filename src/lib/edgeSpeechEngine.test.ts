@@ -180,6 +180,29 @@ describe("edgeSpeechEngine", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("plays more than 12 bundled symbols in order on the same audio element", async () => {
+    const clip = new Blob(["ID3word"], { type: "audio/mpeg" });
+    const wav = new Blob(["RIFFphrase"], { type: "audio/wav" });
+    const phrases = {
+      supported: true, get: vi.fn((_chunk: readonly { key: string }[]) => wav),
+      prepare: vi.fn(async () => wav), clear: vi.fn(),
+    };
+    const voice = engine(undefined, phraseVocabulary(clip), phrases);
+    const events = callbacks();
+    const segments = ["Mais", ...Array<string>(12).fill("Água")];
+    await voice.speak(segments.join(" "), { segments, bundledOnly: true }, events);
+    expect(audios).toHaveLength(1);
+    expect(audios[0].play).toHaveBeenCalledOnce();
+    audios[0].onended?.();
+    expect(audios).toHaveLength(1);
+    expect(audios[0].play).toHaveBeenCalledTimes(2);
+    expect(events.onEnd).not.toHaveBeenCalled();
+    audios[0].onended?.();
+    expect(events.onEnd).toHaveBeenCalledOnce();
+    expect(phrases.get.mock.calls.map(([chunk]) => chunk.length)).toEqual([8, 5]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("prepares phrase audio silently and cancels deferred work on edits or cleanup", async () => {
     vi.useFakeTimers();
     const clip = new Blob(["ID3word"], { type: "audio/mpeg" });

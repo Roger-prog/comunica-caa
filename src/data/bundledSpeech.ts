@@ -40,6 +40,16 @@ import francisca_falta_de_ar from "../assets/voices/francisca/falta-de-ar.mp3?in
 import francisca_tontura from "../assets/voices/francisca/tontura.mp3?inline";
 import francisca_medico from "../assets/voices/francisca/medico.mp3?inline";
 import francisca_medicamento from "../assets/voices/francisca/medicamento.mp3?inline";
+import francisca_rapida_dor from "../assets/voices/francisca/rapida-dor.mp3?inline";
+import francisca_rapida_mal_estar from "../assets/voices/francisca/rapida-mal-estar.mp3?inline";
+import francisca_rapida_respirar from "../assets/voices/francisca/rapida-respirar.mp3?inline";
+import francisca_rapida_repetir from "../assets/voices/francisca/rapida-repetir.mp3?inline";
+import francisca_rapida_nao_entendi from "../assets/voices/francisca/rapida-nao-entendi.mp3?inline";
+import francisca_rapida_ajuda from "../assets/voices/francisca/rapida-ajuda.mp3?inline";
+import francisca_rapida_pergunta from "../assets/voices/francisca/rapida-pergunta.mp3?inline";
+import francisca_rapida_medo from "../assets/voices/francisca/rapida-medo.mp3?inline";
+import francisca_rapida_pausa from "../assets/voices/francisca/rapida-pausa.mp3?inline";
+import francisca_rapida_responsavel from "../assets/voices/francisca/rapida-responsavel.mp3?inline";
 import antonio_agua from "../assets/voices/antonio/agua.mp3?inline";
 import antonio_comer from "../assets/voices/antonio/comer.mp3?inline";
 import antonio_banheiro from "../assets/voices/antonio/banheiro.mp3?inline";
@@ -82,6 +92,16 @@ import antonio_falta_de_ar from "../assets/voices/antonio/falta-de-ar.mp3?inline
 import antonio_tontura from "../assets/voices/antonio/tontura.mp3?inline";
 import antonio_medico from "../assets/voices/antonio/medico.mp3?inline";
 import antonio_medicamento from "../assets/voices/antonio/medicamento.mp3?inline";
+import antonio_rapida_dor from "../assets/voices/antonio/rapida-dor.mp3?inline";
+import antonio_rapida_mal_estar from "../assets/voices/antonio/rapida-mal-estar.mp3?inline";
+import antonio_rapida_respirar from "../assets/voices/antonio/rapida-respirar.mp3?inline";
+import antonio_rapida_repetir from "../assets/voices/antonio/rapida-repetir.mp3?inline";
+import antonio_rapida_nao_entendi from "../assets/voices/antonio/rapida-nao-entendi.mp3?inline";
+import antonio_rapida_ajuda from "../assets/voices/antonio/rapida-ajuda.mp3?inline";
+import antonio_rapida_pergunta from "../assets/voices/antonio/rapida-pergunta.mp3?inline";
+import antonio_rapida_medo from "../assets/voices/antonio/rapida-medo.mp3?inline";
+import antonio_rapida_pausa from "../assets/voices/antonio/rapida-pausa.mp3?inline";
+import antonio_rapida_responsavel from "../assets/voices/antonio/rapida-responsavel.mp3?inline";
 
 // Public, pre-generated vocabulary; inline imports perform no runtime download.
 const clips = new Map<string, Map<string, string>>([
@@ -128,6 +148,16 @@ const clips = new Map<string, Map<string, string>>([
     ["Tontura", francisca_tontura],
     ["Médico", francisca_medico],
     ["Medicamento", francisca_medicamento],
+    ["Estou com dor.", francisca_rapida_dor],
+    ["Não estou me sentindo bem.", francisca_rapida_mal_estar],
+    ["Não consigo respirar direito.", francisca_rapida_respirar],
+    ["Pode repetir?", francisca_rapida_repetir],
+    ["Não entendi.", francisca_rapida_nao_entendi],
+    ["Preciso de ajuda.", francisca_rapida_ajuda],
+    ["Quero fazer uma pergunta.", francisca_rapida_pergunta],
+    ["Estou com medo.", francisca_rapida_medo],
+    ["Preciso de uma pausa.", francisca_rapida_pausa],
+    ["Quero falar com meu responsável.", francisca_rapida_responsavel],
   ])],
   ["pt-BR-AntonioNeural", new Map([
     ["Água", antonio_agua],
@@ -172,6 +202,16 @@ const clips = new Map<string, Map<string, string>>([
     ["Tontura", antonio_tontura],
     ["Médico", antonio_medico],
     ["Medicamento", antonio_medicamento],
+    ["Estou com dor.", antonio_rapida_dor],
+    ["Não estou me sentindo bem.", antonio_rapida_mal_estar],
+    ["Não consigo respirar direito.", antonio_rapida_respirar],
+    ["Pode repetir?", antonio_rapida_repetir],
+    ["Não entendi.", antonio_rapida_nao_entendi],
+    ["Preciso de ajuda.", antonio_rapida_ajuda],
+    ["Quero fazer uma pergunta.", antonio_rapida_pergunta],
+    ["Estou com medo.", antonio_rapida_medo],
+    ["Preciso de uma pausa.", antonio_rapida_pausa],
+    ["Quero falar com meu responsável.", antonio_rapida_responsavel],
   ])],
 ]);
 

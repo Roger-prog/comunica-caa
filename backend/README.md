@@ -6,6 +6,7 @@ O recurso de voz reproduz as palavras do catálogo geral com as vozes neurais do
 
 - Vozes neurais Francisca e Antônio em português do Brasil.
 - Reprodução de 42 símbolos a partir das gravações incluídas no site.
+- Reprodução das 10 frases rápidas padrão em ambas as vozes.
 - Montagem local das frases com os símbolos selecionados, respeitando a ordem e as repetições.
 - Preparação do áudio durante a composição da frase.
 - Redução do silêncio excedente e pausas curtas entre as palavras.

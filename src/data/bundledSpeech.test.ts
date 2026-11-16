@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { getBundledSpeechAudio } from "./bundledSpeech";
 import { CATALOG_PICTOGRAMS, PICTOGRAMS, getPictogramSpeech } from "./pictograms";
 import manifest from "../assets/voices/manifest.json";
+import quickPhrases from "./default-quick-phrases.json";
 
 const assetsRoot = resolve(process.cwd(), "src/assets/voices");
 const voices = [
@@ -19,7 +20,9 @@ describe("bundledSpeech: public neural vocabulary", () => {
       PICTOGRAMS.map((item) => item.id),
     ));
     for (const symbol of bundledSymbols) {
-      expect(getPictogramSpeech(CATALOG_PICTOGRAMS.find((item) => item.id === symbol.id)!)).toBe(symbol.label);
+      const pictogram = CATALOG_PICTOGRAMS.find((item) => item.id === symbol.id);
+      expect(pictogram ? getPictogramSpeech(pictogram) : quickPhrases.find((phrase) => phrase.id === symbol.id)?.text)
+        .toBe(symbol.label);
       const blob = getBundledSpeechAudio(symbol.label, voice);
       expect(blob, symbol.label).toBeInstanceOf(Blob);
       expect(blob?.type).toBe("audio/mpeg");
@@ -57,6 +60,6 @@ describe("bundledSpeech: public neural vocabulary", () => {
         totalBytes += data.length;
       }
     }
-    expect(totalBytes).toBeLessThanOrEqual(1024 * 1024);
+    expect(totalBytes).toBeLessThanOrEqual(1400 * 1024);
   });
 });

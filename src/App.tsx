@@ -7,7 +7,6 @@ import {
   Clock3,
   Grid2X2,
   LoaderCircle,
-  LockKeyhole,
   LogOut,
   MessageCircle,
   Plus,
@@ -72,8 +71,8 @@ const navigation = [
     id: "board" as const,
     label: "Prancha",
     Icon: Grid2X2,
-    title: "Espaço para se expressar",
-    description: "Uma escolha, uma palavra, um mundo de possibilidades.",
+    title: "Prancha de comunicação",
+    description: "",
   },
   {
     id: "evolution" as const,
@@ -408,7 +407,7 @@ function Workspace({
       className={
         isChildMode
           ? "min-h-dvh bg-[#faf9f6]"
-          : "min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]"
+          : "min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]" + (view === "board" ? " workspace-board" : "")
       }
     >
       {!isChildMode && (
@@ -419,10 +418,12 @@ function Workspace({
           >
             Pular para o conteúdo
           </a>
-          <aside className="flex flex-col border-b border-stone-200 bg-white p-4 lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0 lg:p-7">
+          <aside className="flex flex-col border-b border-stone-200 bg-white p-2.5 sm:p-4 lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0 lg:p-7">
             <a
               href="#main-content"
-              className="mb-5 flex items-center gap-3 lg:mb-12"
+              className={view === "board"
+                ? "mb-12 hidden items-center gap-2 lg:flex"
+                : "mb-2 flex items-center gap-2 sm:mb-4 lg:mb-12"}
               aria-label="Comunica, conteúdo principal"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600 text-white">
@@ -432,7 +433,7 @@ function Workspace({
                 <span className="text-2xl font-bold tracking-tight">
                   Comunica<span className="text-brand-600">.</span>
                 </span>
-                <span className="mt-0.5 block text-[10px] tracking-[.19em] text-stone-500 uppercase">
+                <span className="mt-0.5 hidden text-[10px] tracking-[.19em] text-stone-500 uppercase lg:block">
                   Cada expressão importa
                 </span>
               </div>
@@ -440,7 +441,7 @@ function Workspace({
             <p className="eyebrow mb-4 hidden px-3 lg:block">Meu espaço</p>
             <nav
               aria-label="Navegação principal"
-              className="grid grid-cols-3 gap-1 sm:grid-cols-5 lg:flex lg:flex-col lg:gap-2"
+              className="grid auto-cols-fr grid-flow-col gap-1 lg:flex lg:flex-col lg:gap-2"
             >
               {navigation
                 .filter(
@@ -454,10 +455,10 @@ function Workspace({
                     type="button"
                     onClick={() => navigate(id)}
                     aria-current={view === id ? "page" : undefined}
-                    className={`flex min-h-14 flex-col items-center justify-center gap-2 rounded-2xl sm:flex-row px-2 py-3 text-xs font-semibold sm:text-sm lg:justify-start lg:gap-3 lg:px-4 ${view === id ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-50"}`}
+                    className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1 text-[11px] font-semibold sm:min-h-14 sm:flex-row sm:gap-2 sm:px-2 sm:py-3 sm:text-sm lg:justify-start lg:gap-3 lg:px-4 ${view === id ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-50"}`}
                   >
                     <Icon size={20} className="shrink-0" aria-hidden="true" />
-                    <span>{label}</span>
+                    <span className="max-w-full text-[11px] leading-tight [overflow-wrap:anywhere] sm:text-sm">{label}</span>
                     {view === id && (
                       <ChevronRight
                         size={16}
@@ -510,8 +511,10 @@ function Workspace({
 
       <div className="min-w-0">
         {!isChildMode && (
-          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-200/70 bg-white/60 px-5 py-4 sm:px-8 lg:px-10">
-            <span className="text-sm text-stone-500">
+          <header className={view === "board"
+            ? "flex flex-wrap items-center justify-between gap-2 border-b border-stone-200/70 bg-white/60 px-3 py-1.5 sm:px-5 lg:px-8"
+            : "flex flex-wrap items-center justify-between gap-4 border-b border-stone-200/70 bg-white/60 px-5 py-4 sm:px-8 lg:px-10"}>
+            <span className={view === "board" ? "hidden text-sm text-stone-500 sm:inline" : "text-sm text-stone-500"}>
               Meu espaço{" "}
               <span aria-hidden="true" className="mx-2">
                 /
@@ -583,13 +586,18 @@ function Workspace({
           tabIndex={-1}
           className={
             isChildMode
-              ? "mx-auto min-h-dvh max-w-[1600px] p-3 outline-none sm:p-5"
-              : "mx-auto max-w-[1440px] px-5 py-7 outline-none sm:px-8 lg:px-10 lg:py-9"
+              ? "mx-auto min-h-dvh max-w-[1600px] p-2.5 outline-none sm:p-4"
+              : view === "board"
+                ? "mx-auto max-w-[1440px] px-3 py-2 outline-none sm:px-5 lg:px-8"
+                : "mx-auto max-w-[1440px] px-5 py-7 outline-none sm:px-8 lg:px-10 lg:py-9"
           }
         >
           {!isChildMode && (
             <>
-              {preview && (
+              {preview && view === "board" && (
+                <p className="mb-2 text-xs text-stone-600">Demonstração · registros temporários</p>
+              )}
+              {preview && view !== "board" && (
                 <div className="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   <p>
                     <strong>Demonstração interativa.</strong> Use dados
@@ -606,7 +614,7 @@ function Workspace({
                   </button>
                 </div>
               )}
-              <div className="mb-7">
+              {view === "board" ? <h1 className="sr-only">{active.title}</h1> : <div className="mb-7">
                 <p className="eyebrow mb-3">
                   Comunicação aumentativa e alternativa
                 </p>
@@ -618,7 +626,7 @@ function Workspace({
                     ? "Confira os dados da sua conta profissional."
                     : active.description}
                 </p>
-              </div>
+              </div>}
               {canManageChildren &&
                 showChildForm &&
                 view !== "professional" && (
@@ -747,26 +755,13 @@ function Workspace({
                 </p>
               )}
               {workspace.pendingWrites > 0 && (
-                <p role="status" className="mb-4 text-xs text-stone-500">
+                <p role="status" className={view === "board" ? "sr-only" : "mb-4 text-xs text-stone-500"}>
                   Salvando{" "}
                   {workspace.pendingWrites === 1
                     ? "comunicação"
                     : "comunicações"}
                   …
                 </p>
-              )}
-              {view === "board" && (
-                <div className="mb-5 flex justify-end">
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={startChildMode}
-                    disabled={workspace.loading}
-                  >
-                    <LockKeyhole size={18} aria-hidden="true" />
-                    Iniciar modo criança
-                  </button>
-                </div>
               )}
             </>
           )}
@@ -791,6 +786,8 @@ function Workspace({
               rate={boardRate}
               largeCards={!savedSettings && preferences.largeCards}
               isChildMode={isChildMode}
+              onStartCommunication={startChildMode}
+              modePending={workspace.loading}
               onUnlockRequest={() => {
                 speech.stop();
                 childMode.requestUnlock();
