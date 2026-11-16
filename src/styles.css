@@ -41,6 +41,33 @@ button:disabled {
   background: #e4d6f5;
 }
 
+.board-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--board-gap);
+}
+
+.board-contrast :is(.surface, .button-secondary, .input-field) {
+  border-color: #111;
+  color: #111;
+}
+
+.board-contrast button:focus-visible {
+  outline-color: #111;
+}
+
+@media (min-width: 420px) {
+  .board-card-grid {
+    grid-template-columns: repeat(var(--board-mobile-cols), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 640px) {
+  .board-card-grid {
+    grid-template-columns: repeat(var(--board-cols), minmax(0, 1fr));
+  }
+}
+
 @layer components {
   .surface {
     @apply rounded-3xl border border-stone-200 bg-white;

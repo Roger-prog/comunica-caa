@@ -3,7 +3,6 @@
 import asyncio
 import hashlib
 import json
-import re
 import subprocess
 from contextlib import aclosing
 from pathlib import Path
@@ -17,8 +16,19 @@ MAX_BYTES = 2 * 1024 * 1024
 
 
 def vocabulary():
-    source = (ROOT / "src" / "data" / "pictograms.ts").read_text(encoding="utf-8")
-    entries = re.findall(r'id:\s*"([a-z0-9-]+)",\s*label:\s*"([^"\r\n]+)"', source)
+    data_dir = ROOT / "src" / "data"
+    legacy = json.loads((data_dir / "legacy-pictograms.json").read_text(encoding="utf-8"))
+    catalog = json.loads((data_dir / "board-catalog.generated.json").read_text(encoding="utf-8"))
+    core_ids = {
+        "eu", "voce", "querer", "precisar", "parar", "ir", "fazer", "agora",
+        "dormir", "estou", "com", "aqui", "febre", "tosse", "falta-de-ar",
+        "tontura", "medicamento", "medico",
+    }
+    core = [item for item in catalog if item["id"] in core_ids]
+    if {item["id"] for item in core} != core_ids:
+        raise ValueError("Public audio vocabulary does not match the board catalog")
+    entries = [(item["id"], item["label"]) for item in legacy]
+    entries += [(item["id"], item["speechText"]) for item in core]
     if not entries or len({item[0] for item in entries}) != len(entries):
         raise ValueError("Invalid built-in vocabulary")
     return entries
@@ -73,7 +83,11 @@ def write_catalog(entries):
     body = "\n".join(imports) + "\n\n"
     body += "// Public, pre-generated vocabulary; inline imports perform no runtime download.\n"
     body += "const clips = new Map<string, Map<string, string>>([\n" + "\n".join(mappings) + "\n]);\n\n"
-    body += '''/** Decode only public built-in clips; the engine owns any retained Blob. */
+    body += '''export function hasBundledSpeech(text: string): boolean {
+  return clips.get("pt-BR-FranciscaNeural")?.has(text.trim()) ?? false;
+}
+
+/** Decode only public built-in clips; the engine owns any retained Blob. */
 export function getBundledSpeechAudio(text: string, voice: string): Blob | undefined {
   const source = clips.get(voice)?.get(text.trim());
   if (!source) return;
@@ -103,7 +117,7 @@ async def main():
         data = path.read_bytes()
         inventory.append({"file": path.relative_to(ROOT).as_posix(), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
     (ROOT / "src" / "assets" / "voices" / "manifest.json").write_text(
-        json.dumps({"format": "audio/mpeg", "sample_rate": 24000, "voices": VOICES, "clips": inventory}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+        json.dumps({"format": "audio/mpeg", "sample_rate": 24000, "voices": VOICES, "labels": dict(entries), "clips": inventory}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
     )
     print(json.dumps({"clips": len(files), "bytes": sum(path.stat().st_size for path in files)}), flush=True)
 

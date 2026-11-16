@@ -4,21 +4,23 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 
 ## Prancha de comunicação
 
-- 24 símbolos organizados nas categorias Necessidades, Sentimentos, Atividades, Pessoas, Lugares e Conversar.
-- Busca por palavras e filtro por categoria.
+- 418 entradas reunindo o vocabulário de CAA, os símbolos originais e os grupos de apoio à teleconsulta.
+- Tela inicial com vocabulário reduzido, navegação por categorias, favoritos e símbolos próprios.
+- Busca que reconhece acentos, variantes de escrita e palavras relacionadas.
+- Pictogramas oficiais do ARASAAC com indicação de origem e cartões com legenda quando a imagem aguarda revisão.
 - Composição de frases com até 12 símbolos, mantendo a ordem e as repetições escolhidas.
 - Leitura de cada símbolo e da frase completa.
-- Controles para limpar a frase e interromper a reprodução.
+- Controles para remover um símbolo, desfazer a última adição, limpar a frase e interromper a reprodução.
 - Resposta visual ao toque e identificação do último símbolo selecionado.
 
 ## Voz e reprodução
 
 - Vozes neurais em português do Brasil: Francisca e Antônio.
-- Áudios dos símbolos incluídos no site, disponíveis desde a primeira seleção.
-- Preparação da frase durante a composição, com leitura a partir das gravações dos símbolos.
+- Gravações incluídas para 42 símbolos, entre vocabulário original, essencial e de saúde.
+- Preparação da frase durante a composição quando todos os símbolos têm áudio incluído.
 - Pausas curtas entre as palavras e reaproveitamento dos áudios já preparados.
 - Ajuste de velocidade com preservação do tom da voz.
-- Leitura de textos adicionais pelo serviço de voz.
+- Leitura de frases próprias pela voz local em português do Brasil quando disponível no dispositivo.
 
 ## Perfis e acompanhamento
 
@@ -28,7 +30,7 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Conclusão do perfil no primeiro acesso pelo Google.
 - Painéis e navegação de acordo com o tipo de conta.
 - Perfis individuais de crianças vinculados ao usuário.
-- Registro das seleções e de cada símbolo ao ouvir uma frase, incluindo repetições, no histórico por perfil.
+- Histórico por perfil para símbolos do vocabulário geral, com contagem das ocorrências na reprodução de frases.
 - Indicadores de utilização em períodos de 7 ou 30 dias.
 - Visualização da frequência de uso dos símbolos e das categorias.
 
@@ -47,12 +49,16 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Seleção de período, paginação dos registros e exportação de relatórios em PDF.
 - Relatórios com identificação do paciente, indicadores de uso, tabela de comunicações e paginação.
 - Consulta e remoção dos vínculos pelo responsável.
+- Permissão separada para o profissional editar a prancha e visualizar suas fotos.
 
 ## Acessibilidade e personalização
 
 - Interface responsiva para computador, tablet e celular.
 - Cartões ampliados, rótulos textuais e navegação por teclado.
-- Preferências de voz, velocidade e tamanho dos cartões salvas no navegador.
+- Preferências de voz, velocidade, contraste, tamanho, espaçamento, colunas e paginação por paciente.
+- Organização de categorias, favoritos, tela inicial e ordem dos símbolos.
+- Criação, edição e ocultação de símbolos com legenda e fala próprias, pictogramas pesquisáveis e fotos privadas.
+- Prévia, recorte e compressão das fotos antes de salvar.
 - Demonstração interativa sem cadastro, com registros temporários durante a sessão.
 
 ## Acesso de demonstração

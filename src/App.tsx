@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -24,7 +24,7 @@ import { RedefinirSenha } from "./auth/RedefinirSenha";
 import { CompletarPerfil } from "./auth/CompletarPerfil";
 import { AuthCallback } from "./auth/AuthCallback";
 import { EmailConfirmation } from "./auth/EmailConfirmation";
-import { AboutPage, PrivacyPage } from "./components/PublicPages";
+import { AboutPage, CreditsPage, PrivacyPage } from "./components/PublicPages";
 import {
   homeForRole,
   loginDestination,
@@ -33,6 +33,7 @@ import {
 import { useAuth } from "./auth/AuthProvider";
 import { PrivateRoute } from "./auth/PrivateRoute";
 import {
+  Link,
   Navigate,
   Route,
   Routes,
@@ -46,6 +47,9 @@ import { useSpeech } from "./hooks/useSpeech";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useChildMode } from "./hooks/useChildMode";
 import { PatientInvitation } from "./components/PatientInvitation";
+import { PatientBoardPanel } from "./components/PatientBoardPanel";
+import { applyPatientBoard } from "./lib/boardPresentation";
+import { DEFAULT_BOARD_SETTINGS, usePatientBoard } from "./lib/patientBoard";
 
 const ProfessionalDashboard = lazy(() =>
   import("./components/ProfessionalDashboard").then((module) => ({
@@ -190,6 +194,7 @@ function AppRoutes() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/sobre" element={<AboutPage />} />
       <Route path="/privacidade" element={<PrivacyPage />} />
+      <Route path="/creditos" element={<CreditsPage />} />
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/cadastro" element={<LoginRoute registering />} />
       <Route path="/esqueci-senha" element={<EsqueciSenha />} />
@@ -299,6 +304,15 @@ function Workspace({
   );
   const view: View = isChildMode ? "board" : (requestedView ?? "board");
   const [preferences, setPreferences] = useState(readPreferences);
+  const patientId = canManageChildren && !preview ? workspace.selectedChild?.id : undefined;
+  const patientBoard = usePatientBoard(patientId, session?.user.id, Boolean(patientId));
+  const boardCatalog = useMemo(() => applyPatientBoard(patientBoard.board), [patientBoard.board]);
+  const savedSettings = patientId
+    ? patientBoard.board?.settings ?? DEFAULT_BOARD_SETTINGS
+    : undefined;
+  const boardVoice = savedSettings?.voiceURI ?? preferences.voiceURI;
+  const boardRate = savedSettings?.rate ?? preferences.rate;
+  const stopSpeech = speech.stop;
   const [showChildForm, setShowChildForm] = useState(false);
   const [childName, setChildName] = useState("");
   const [childError, setChildError] = useState<string | null>(null);
@@ -320,6 +334,8 @@ function Workspace({
     document.getElementById("main-content")?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [view, isChildMode]);
+
+  useEffect(() => () => stopSpeech(), [workspace.selectedId, stopSpeech]);
 
   useEffect(() => {
     if (showChildForm) document.getElementById("child-name")?.focus();
@@ -754,13 +770,26 @@ function Workspace({
               )}
             </>
           )}
+          {view === "board" && patientBoard.status === "error" && !isChildMode && (
+            <div className="surface mb-4 flex flex-wrap items-center gap-3 p-3">
+              <p role="alert" className="text-sm text-red-800">
+                Não foi possível carregar os símbolos próprios e os ajustes deste perfil.
+              </p>
+              <button type="button" className="button-secondary" onClick={patientBoard.reload}>
+                Recarregar personalização
+              </button>
+            </div>
+          )}
           {view === "board" && (
             <CommunicationBoard
               key={workspace.selectedId || "unassigned"}
               speech={speech}
               onSelect={workspace.record}
-              {...preferences}
-              largeCards={isChildMode || preferences.largeCards}
+              catalog={boardCatalog}
+              settings={savedSettings}
+              voiceURI={boardVoice}
+              rate={boardRate}
+              largeCards={!savedSettings && preferences.largeCards}
               isChildMode={isChildMode}
               onUnlockRequest={() => {
                 speech.stop();
@@ -806,7 +835,17 @@ function Workspace({
                   preview={preview}
                 />
               )}
-              {canManageChildren && (
+              {patientId && workspace.selectedChild && session?.user.id && (
+                <PatientBoardPanel
+                  key={patientId}
+                  patientId={patientId}
+                  patientName={workspace.selectedChild.nome}
+                  userId={session.user.id}
+                  state={patientBoard}
+                  canDeleteAny
+                />
+              )}
+              {canManageChildren && !patientId && (
                 <>
                   <section
                     className="surface p-6"
@@ -970,7 +1009,7 @@ function Workspace({
                   </button>
                 )}
               </section>
-              {canManageChildren && (
+              {canManageChildren && !patientId && (
                 <p className="text-xs leading-5 text-stone-500">
                   Preferências de voz e tamanho são salvas somente neste
                   navegador. Os símbolos e as frases da prancha usam os áudios
@@ -982,7 +1021,9 @@ function Workspace({
           {!isChildMode && (
             <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-5 text-xs text-stone-500">
               <span>Comunica · Cada expressão importa.</span>
-              <span>Um passo de cada vez.</span>
+              <Link to="/creditos" className="inline-flex min-h-11 items-center font-semibold text-brand-700 underline underline-offset-4">
+                Créditos dos pictogramas
+              </Link>
             </footer>
           )}
           {isChildMode && childMode.fullscreenNotice && (

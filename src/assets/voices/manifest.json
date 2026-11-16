@@ -5,7 +5,56 @@
     "francisca": "pt-BR-FranciscaNeural",
     "antonio": "pt-BR-AntonioNeural"
   },
+  "labels": {
+    "agua": "Água",
+    "comer": "Comer",
+    "banheiro": "Banheiro",
+    "descansar": "Descansar",
+    "ajuda": "Ajuda",
+    "pausa": "Pausa",
+    "feliz": "Feliz",
+    "triste": "Triste",
+    "dor": "Dor",
+    "carinho": "Carinho",
+    "brincar": "Brincar",
+    "desenhar": "Desenhar",
+    "ler": "Ler",
+    "musica": "Música",
+    "mae": "Mãe",
+    "pai": "Pai",
+    "familia": "Família",
+    "amigos": "Amigos",
+    "casa": "Casa",
+    "parque": "Parque",
+    "ola": "Olá",
+    "sim": "Sim",
+    "nao": "Não",
+    "mais": "Mais",
+    "eu": "Eu",
+    "voce": "Você",
+    "estou": "Estou",
+    "ir": "Ir",
+    "querer": "Querer",
+    "precisar": "Precisar",
+    "parar": "Parar",
+    "fazer": "Fazer",
+    "dormir": "Dormir",
+    "aqui": "Aqui",
+    "com": "Com",
+    "agora": "Agora",
+    "febre": "Febre",
+    "tosse": "Tosse",
+    "falta-de-ar": "Falta de ar",
+    "tontura": "Tontura",
+    "medico": "Médico",
+    "medicamento": "Medicamento"
+  },
   "clips": [
+    {
+      "file": "src/assets/voices/antonio/agora.mp3",
+      "bytes": 8684,
+      "sha256": "4eb5fb9c97f5d2a74e64a778513b2e35c8aed1df02bf44b61891b40fcc449d06"
+    },
     {
       "file": "src/assets/voices/antonio/agua.mp3",
       "bytes": 10700,
@@ -20,6 +69,11 @@
       "file": "src/assets/voices/antonio/amigos.mp3",
       "bytes": 10700,
       "sha256": "5c89f11fb33f15d4d14ecb886494bafc7ee0574f99d2ea2368ece3e6a90ab73a"
+    },
+    {
+      "file": "src/assets/voices/antonio/aqui.mp3",
+      "bytes": 8108,
+      "sha256": "cfff5bf834d2d9c17ce27f2f0b9d8ee2a9d1fa672e24a129477f9f68e12c0823"
     },
     {
       "file": "src/assets/voices/antonio/banheiro.mp3",
@@ -42,6 +96,11 @@
       "sha256": "7c7ba824c736f5d0ab525d965103d2ec8264b918a5e5cd51713e412b1e26f9c8"
     },
     {
+      "file": "src/assets/voices/antonio/com.mp3",
+      "bytes": 6956,
+      "sha256": "0f3bd4bcee1161196dc4fa86f4705df03ce3614d4e82c2a35cba8ebd0f63ec7e"
+    },
+    {
       "file": "src/assets/voices/antonio/comer.mp3",
       "bytes": 10556,
       "sha256": "72aebd12b195170ae939611cee2d06f87a2e9c2f23523bc8c0b017ba3b2b10de"
@@ -62,14 +121,49 @@
       "sha256": "a9104542b8d5626eb8a9bf7dc3edd57e32f8e293117ba255ec75941ae086bb37"
     },
     {
+      "file": "src/assets/voices/antonio/dormir.mp3",
+      "bytes": 8396,
+      "sha256": "04d2265243b1cedd3956e4a4f275d9608d1cde3c7576a1a76f612a91e58f0a7e"
+    },
+    {
+      "file": "src/assets/voices/antonio/estou.mp3",
+      "bytes": 8252,
+      "sha256": "354001a5d2097f3e13c3f4e08f2cef305a2824bdb4bb6471f0eb5b0488ff083e"
+    },
+    {
+      "file": "src/assets/voices/antonio/eu.mp3",
+      "bytes": 7100,
+      "sha256": "695270e10e6480d2b8c4f74dc07e084b1e0e85c0dbcee0fe4055703a1da75495"
+    },
+    {
+      "file": "src/assets/voices/antonio/falta-de-ar.mp3",
+      "bytes": 9548,
+      "sha256": "7b9611bb8ca3606067b0794934f5651153b0036f4ae3299fa87834d60fa6d47f"
+    },
+    {
       "file": "src/assets/voices/antonio/familia.mp3",
       "bytes": 10412,
       "sha256": "5b300f5b6bc53ecf0356e4082855e4477a62fa691fde0dd15cdf59eab5144ffe"
     },
     {
+      "file": "src/assets/voices/antonio/fazer.mp3",
+      "bytes": 8396,
+      "sha256": "89de7d0d18814c1e83f6fd8a70227d95a0ec711bc57f17ca3450b064be20f861"
+    },
+    {
+      "file": "src/assets/voices/antonio/febre.mp3",
+      "bytes": 8396,
+      "sha256": "148f75c2f5dd22867321294a8eec45cef7b4ce2931eec14df63e23d1631b4c9a"
+    },
+    {
       "file": "src/assets/voices/antonio/feliz.mp3",
       "bytes": 10412,
       "sha256": "1d4231674a8216cd37a660ad2029d1e29a0c40c548da368dae20a7b06afbc713"
+    },
+    {
+      "file": "src/assets/voices/antonio/ir.mp3",
+      "bytes": 6956,
+      "sha256": "1b2eb52fb38d052def055b7f9ddf132ce802d635328b05930cb3970497f3ed63"
     },
     {
       "file": "src/assets/voices/antonio/ler.mp3",
@@ -85,6 +179,16 @@
       "file": "src/assets/voices/antonio/mais.mp3",
       "bytes": 10556,
       "sha256": "3c080498817e5794a537bee40fdbde98281d536ad0e76571fb3c6bcd6e3724d3"
+    },
+    {
+      "file": "src/assets/voices/antonio/medicamento.mp3",
+      "bytes": 10412,
+      "sha256": "c6448d69da25a8bbbad1e38a4dcdfb2297931f5dfb8f0fa6df20bc5e5fa9f123"
+    },
+    {
+      "file": "src/assets/voices/antonio/medico.mp3",
+      "bytes": 8684,
+      "sha256": "303ca801126523af3e582ec7cbfb05241281491bf622339443f2b978ce023caa"
     },
     {
       "file": "src/assets/voices/antonio/musica.mp3",
@@ -107,6 +211,11 @@
       "sha256": "2755ee08637fb408d876fecb28f64ff96d401c6de92f13093b6b757a6054c768"
     },
     {
+      "file": "src/assets/voices/antonio/parar.mp3",
+      "bytes": 7676,
+      "sha256": "d4979a0113baa332c5a7a4b417942a3e5e59e219b242b67c776ab5c9a4172371"
+    },
+    {
       "file": "src/assets/voices/antonio/parque.mp3",
       "bytes": 10556,
       "sha256": "a45b0d05c0ee4489360587d20cbe02a470fd830c05401828f862db5db2db964e"
@@ -117,14 +226,44 @@
       "sha256": "91a18757c301088f263f527cf0edcbdfa2c4f3facc80c3bddb4ac5ecd34fc0cf"
     },
     {
+      "file": "src/assets/voices/antonio/precisar.mp3",
+      "bytes": 8828,
+      "sha256": "243aee1d294692d665fbd82933ed6aa3d06f1c2f1333dcf9597eb2e923f9b67f"
+    },
+    {
+      "file": "src/assets/voices/antonio/querer.mp3",
+      "bytes": 7532,
+      "sha256": "4150d2c80786863844c9ba6ee2a665177d8bc72643d5fe4e7cf096451fc1db25"
+    },
+    {
       "file": "src/assets/voices/antonio/sim.mp3",
       "bytes": 10556,
       "sha256": "7c055b8fe26178f6c688471282f250de7e9eef71ed400449d1efe8bbf782fb5b"
     },
     {
+      "file": "src/assets/voices/antonio/tontura.mp3",
+      "bytes": 8972,
+      "sha256": "48273a033c9babe9c7516c1bbb60488a28ec188d92f69965a4f1704b191e0c38"
+    },
+    {
+      "file": "src/assets/voices/antonio/tosse.mp3",
+      "bytes": 8108,
+      "sha256": "287a0874c3c4d219fa59c5ab8daa911dc46f48bbb687eb67a7fdcd85f3afdd3c"
+    },
+    {
       "file": "src/assets/voices/antonio/triste.mp3",
       "bytes": 10556,
       "sha256": "c778edc4b412696e17b18d3efd707eb58fcf47fa5c28cd27caf7923d291660a5"
+    },
+    {
+      "file": "src/assets/voices/antonio/voce.mp3",
+      "bytes": 8828,
+      "sha256": "747e25b4c952ed1579936891eded4a5e4cdd113e23cbb4a611bf03724bfbe7a3"
+    },
+    {
+      "file": "src/assets/voices/francisca/agora.mp3",
+      "bytes": 8540,
+      "sha256": "fc80d47976a2f769a516914edc191a09803d3173b705fb11842090b57c96d109"
     },
     {
       "file": "src/assets/voices/francisca/agua.mp3",
@@ -140,6 +279,11 @@
       "file": "src/assets/voices/francisca/amigos.mp3",
       "bytes": 10700,
       "sha256": "98646bf22cd92941b86d9517215dac1b9a5b62783c98f7b895a504bcb32c9f76"
+    },
+    {
+      "file": "src/assets/voices/francisca/aqui.mp3",
+      "bytes": 8108,
+      "sha256": "9fa52cdcfa19cd664fdb659c51f5adef043a321c5e0919c9faa39d032f7f3a1f"
     },
     {
       "file": "src/assets/voices/francisca/banheiro.mp3",
@@ -162,6 +306,11 @@
       "sha256": "3a648ee55a7cce5ffde808c22bea6bb1fadbfc1ae450afd1102afb2b0c63d7cd"
     },
     {
+      "file": "src/assets/voices/francisca/com.mp3",
+      "bytes": 7100,
+      "sha256": "85db8ba8efb45dab9c10a529b351b3d07a8804dc91f5e34e10941c00483dc63e"
+    },
+    {
       "file": "src/assets/voices/francisca/comer.mp3",
       "bytes": 10556,
       "sha256": "d078e020fc1518ee2aa1d26b2e62a3a1898e7abb5aa9efd7be4a7127d6109830"
@@ -182,14 +331,49 @@
       "sha256": "2ecad7a29bb563b4ce86018ac1b101f98b5ca3cc05872c8b2b8892e7e91287f4"
     },
     {
+      "file": "src/assets/voices/francisca/dormir.mp3",
+      "bytes": 8540,
+      "sha256": "4de113529468ba9c87ce00984edfd76c6481a90443b26f1dd3477256193dd247"
+    },
+    {
+      "file": "src/assets/voices/francisca/estou.mp3",
+      "bytes": 8252,
+      "sha256": "7af11516276ec608a781492aab76c9f5874ddf3aa902a5067cf6ef5beb9a3a36"
+    },
+    {
+      "file": "src/assets/voices/francisca/eu.mp3",
+      "bytes": 7244,
+      "sha256": "6b1bd047f58a1f245a8c637d53143b71bca48e12b136614e35d37b83efc389af"
+    },
+    {
+      "file": "src/assets/voices/francisca/falta-de-ar.mp3",
+      "bytes": 9980,
+      "sha256": "df704ea13de8ef8836f66802bd0c9eb0586f1d1d1641a524d1f61229d9cf2900"
+    },
+    {
       "file": "src/assets/voices/francisca/familia.mp3",
       "bytes": 10556,
       "sha256": "fd55ec9ca425b19cb14de52a761a015f948fb8abb77ecfcf31fc28ec90220e49"
     },
     {
+      "file": "src/assets/voices/francisca/fazer.mp3",
+      "bytes": 8108,
+      "sha256": "2ba7c816212a6f54d7b3060e67da6820b6fbe11ee5822ad74c78001869d57f36"
+    },
+    {
+      "file": "src/assets/voices/francisca/febre.mp3",
+      "bytes": 8540,
+      "sha256": "a7c5883ca6fc46191b806d7f9f90f50b7ab9f1cd3011ef2eca6b110a0a00de42"
+    },
+    {
       "file": "src/assets/voices/francisca/feliz.mp3",
       "bytes": 10556,
       "sha256": "24d3c587b6d02ebb973bfc8a2156494f6cf819145b5ebf1f7f0696a82456c5ce"
+    },
+    {
+      "file": "src/assets/voices/francisca/ir.mp3",
+      "bytes": 6668,
+      "sha256": "e222b040995978b0534ea8fb38429b3dc1ce062a76068413ed86d794c6053e5b"
     },
     {
       "file": "src/assets/voices/francisca/ler.mp3",
@@ -205,6 +389,16 @@
       "file": "src/assets/voices/francisca/mais.mp3",
       "bytes": 10700,
       "sha256": "c95dee876c2f32d6dbee717476213215e9948730ff383fc338a05aca2b6c9c17"
+    },
+    {
+      "file": "src/assets/voices/francisca/medicamento.mp3",
+      "bytes": 10556,
+      "sha256": "8dd37b16d10f59869593670b3792f3f0d3737abc84bd00a070a3e4df0fc902dc"
+    },
+    {
+      "file": "src/assets/voices/francisca/medico.mp3",
+      "bytes": 8684,
+      "sha256": "e6c4ced2a55ce36b1fb19b45a0069d106f89feea30ca25c93a1a9218251ab884"
     },
     {
       "file": "src/assets/voices/francisca/musica.mp3",
@@ -227,6 +421,11 @@
       "sha256": "87217b68adc479c8ba64df993624b18dc952b3f870bab4ced54553cc1fedc4e8"
     },
     {
+      "file": "src/assets/voices/francisca/parar.mp3",
+      "bytes": 7676,
+      "sha256": "b8276a71c3993c74646625f477a50ad20cc83ba75e90f280be264d4797e69727"
+    },
+    {
       "file": "src/assets/voices/francisca/parque.mp3",
       "bytes": 10556,
       "sha256": "ac283c85ed93fd9b23820af3bf66bd55f178fe96dfd1d4437494a359b65e4963"
@@ -237,14 +436,39 @@
       "sha256": "e15ba95cc73f40a5aa53a1c2e1cd9ecf62d29da265ee5031f5712395f51d1811"
     },
     {
+      "file": "src/assets/voices/francisca/precisar.mp3",
+      "bytes": 9116,
+      "sha256": "6466718a58ec72a11266e3f501e5ced5dbfade043181919af02425dd802144c3"
+    },
+    {
+      "file": "src/assets/voices/francisca/querer.mp3",
+      "bytes": 7820,
+      "sha256": "7a2ddba0e2a88e8e26f7a0d6ffa96483223606a1cd0f742cc2d43c213853dd00"
+    },
+    {
       "file": "src/assets/voices/francisca/sim.mp3",
       "bytes": 10556,
       "sha256": "5d43b9e603d10ca553035da6c6bbbd363be5320f5fe4f59b0df66b5e36d3b733"
     },
     {
+      "file": "src/assets/voices/francisca/tontura.mp3",
+      "bytes": 8540,
+      "sha256": "34c58d766eb4da1d0d147e09de3d6ad4106ea3ad2df9a3b35399fbfe62f148b7"
+    },
+    {
+      "file": "src/assets/voices/francisca/tosse.mp3",
+      "bytes": 8252,
+      "sha256": "2454ccbcc39913f9c3d9d0dd1149b2dee93a956236bd73d999c5873b87e7e0e9"
+    },
+    {
       "file": "src/assets/voices/francisca/triste.mp3",
       "bytes": 10556,
       "sha256": "072dd5bd8c4bcc1bb039638b193eb6d69d4785d8c7b1eb3ce00a84c7aafd90f6"
+    },
+    {
+      "file": "src/assets/voices/francisca/voce.mp3",
+      "bytes": 8252,
+      "sha256": "cb340c00c0477fb41ea1f060e54cd20c0253b6bd3673c3299a93ba2488728332"
     }
   ]
 }

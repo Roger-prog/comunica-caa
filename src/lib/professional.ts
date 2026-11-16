@@ -107,7 +107,32 @@ export async function listGuardianMembers(
   const { data, error } = await query;
   aborted(signal);
   if (error) throw generic();
-  return data ?? [];
+  if (!data?.length) return [];
+
+  let permissions = client().from("caa_members")
+    .select("professional_id,board_access").eq("crianca_id", id);
+  if (signal) permissions = permissions.abortSignal(signal);
+  const access = await permissions;
+  aborted(signal);
+  if (access.error) throw generic();
+  const byProfessional = new Map(
+    access.data.map((row) => [row.professional_id, row.board_access]),
+  );
+  return data.filter((member) => byProfessional.has(member.professional_id))
+    .map((member) => ({ ...member, board_access: byProfessional.get(member.professional_id) === true }));
+}
+
+export async function setBoardMemberAccess(
+  id: string, professionalId: string, allowed: boolean,
+): Promise<void> {
+  patientId(id);
+  patientId(professionalId);
+  const { data, error } = await client().rpc("set_caa_board_member_access", {
+    p_crianca_id: id,
+    p_professional_id: professionalId,
+    p_allowed: allowed,
+  });
+  if (error || data !== allowed) throw generic();
 }
 
 export async function revokeMember(
@@ -146,12 +171,12 @@ export async function listProfessionalPatients(
   aborted(signal);
   const id = await userId();
   aborted(signal);
-  const ids: string[] = [];
+  const permissions = new Map<string, boolean>();
   let lastId: string | undefined;
   for (;;) {
     let query = client()
       .from("caa_members")
-      .select("crianca_id")
+      .select("crianca_id,board_access")
       .eq("professional_id", id)
       .order("crianca_id")
       .limit(PAGE_SIZE);
@@ -164,12 +189,13 @@ export async function listProfessionalPatients(
     if (!rows.length) break;
     for (const member of rows) {
       if (!UUID.test(member.crianca_id)) throw generic();
-      ids.push(member.crianca_id);
+      permissions.set(member.crianca_id, member.board_access === true);
     }
     const next = rows.at(-1)!.crianca_id;
     if (lastId && next <= lastId) throw generic();
     lastId = next;
   }
+  const ids = Array.from(permissions.keys());
   if (!ids.length) return [];
   // Membership RLS is still enforced when selecting the children by these IDs.
   const children: Crianca[] = [];
@@ -191,7 +217,7 @@ export async function listProfessionalPatients(
       if (!response.data.length) break;
       if (response.data.some((child) => !requested.includes(child.id)))
         throw generic();
-      children.push(...response.data);
+      children.push(...response.data.map((child) => ({ ...child, board_access: permissions.get(child.id) === true })));
       const next = response.data.at(-1)!.id;
       if (childCursor && next <= childCursor) throw generic();
       childCursor = next;

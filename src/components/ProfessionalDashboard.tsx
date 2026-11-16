@@ -13,6 +13,7 @@ import {
 } from "../hooks/useProfessionalDashboard";
 import { downloadPatientReport } from "../lib/patientReport";
 import { ProfessionalError } from "../lib/professional";
+import { LinkedPatientBoardPanel } from "./PatientBoardPanel";
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -287,6 +288,18 @@ export function ProfessionalDashboard({
             </div>
           ) : (
             <>
+              {!preview && userId && (dashboard.selectedPatient.board_access ? (
+                <LinkedPatientBoardPanel
+                  key={dashboard.selectedPatient.id}
+                  patientId={dashboard.selectedPatient.id}
+                  patientName={dashboard.selectedPatient.nome}
+                  userId={userId}
+                />
+              ) : (
+                <p className="surface p-4 text-sm text-stone-700">
+                  A personalização da prancha fica disponível quando o responsável autoriza o acesso.
+                </p>
+              ))}
               <div className="surface p-5 sm:p-6">
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">

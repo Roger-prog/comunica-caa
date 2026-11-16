@@ -12,6 +12,7 @@ import {
   createInvitation,
   listGuardianMembers,
   revokeMember,
+  setBoardMemberAccess,
 } from "../lib/professional";
 
 vi.mock("../lib/professional", async (original) => ({
@@ -19,6 +20,7 @@ vi.mock("../lib/professional", async (original) => ({
   createInvitation: vi.fn(),
   listGuardianMembers: vi.fn(),
   revokeMember: vi.fn(),
+  setBoardMemberAccess: vi.fn(),
 }));
 const child: Crianca = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -39,6 +41,7 @@ beforeEach(() => {
   vi.mocked(createInvitation).mockReset();
   vi.mocked(listGuardianMembers).mockReset().mockResolvedValue([]);
   vi.mocked(revokeMember).mockReset().mockResolvedValue();
+  vi.mocked(setBoardMemberAccess).mockReset().mockResolvedValue();
 });
 
 describe("Convite do responsável", () => {
@@ -119,5 +122,22 @@ describe("Convite do responsável", () => {
       child.id,
       professionalId,
     );
+  });
+
+  it("offers an explicit board grant and lets the guardian withdraw it without removing the link", async () => {
+    const professionalId = "22222222-2222-4222-8222-222222222222";
+    vi.mocked(listGuardianMembers).mockResolvedValue([
+      { professional_id: professionalId, professional_name: "Profissional fictício", created_at: "2026-11-02T12:00:00Z", board_access: false },
+    ]);
+    render(<PatientInvitation child={child} preview={false} />);
+    const grant = await screen.findByRole("button", { name: /Autorizar edição da prancha para/ });
+    expect(grant).toHaveAccessibleDescription(/veja as fotos privadas/);
+    fireEvent.click(grant);
+    expect(await screen.findByText("Edição da prancha autorizada")).toBeInTheDocument();
+    expect(setBoardMemberAccess).toHaveBeenLastCalledWith(child.id, professionalId, true);
+    fireEvent.click(screen.getByRole("button", { name: /Retirar acesso à prancha para/ }));
+    expect(await screen.findByText("Acesso ao histórico e aos relatórios")).toBeInTheDocument();
+    expect(setBoardMemberAccess).toHaveBeenLastCalledWith(child.id, professionalId, false);
+    expect(revokeMember).not.toHaveBeenCalled();
   });
 });

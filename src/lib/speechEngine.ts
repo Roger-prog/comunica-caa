@@ -3,6 +3,9 @@ export interface SpeechOptions {
   rate?: number;
   volume?: number;
   segments?: readonly string[];
+  deviceOnly?: boolean;
+  preferDevice?: boolean;
+  bundledOnly?: boolean;
 }
 
 export interface SpeechVoice {
@@ -48,17 +51,20 @@ function bounded(
 }
 
 /** No browser globals are read at module import time. */
-export function createWebSpeechEngine(): SpeechEngine {
+export function createWebSpeechEngine(localOnly = false): SpeechEngine {
   const supported =
     typeof window !== "undefined" &&
     "speechSynthesis" in window &&
     typeof window.SpeechSynthesisUtterance === "function";
   const synthesis = supported ? window.speechSynthesis : undefined;
   let currentUtterance: SpeechSynthesisUtterance | null = null;
+  const getVoices = () => (synthesis?.getVoices() ?? []).filter(
+    (voice) => !localOnly || (voice.localService && /^pt[-_]BR$/i.test(voice.lang)),
+  );
 
   return {
     supported,
-    getVoices: () => synthesis?.getVoices() ?? [],
+    getVoices,
     subscribeVoices(listener) {
       synthesis?.addEventListener("voiceschanged", listener);
       return () => synthesis?.removeEventListener("voiceschanged", listener);
@@ -66,11 +72,15 @@ export function createWebSpeechEngine(): SpeechEngine {
     speak(text, options, callbacks) {
       if (!synthesis) throw new Error("speech_unavailable");
       const utterance = new window.SpeechSynthesisUtterance(text);
-      const voices = synthesis.getVoices();
+      const voices = getVoices();
       const voice =
         voices.find((item) => item.voiceURI === options.voiceURI) ??
         voices.find((item) => /^pt[-_]BR$/i.test(item.lang)) ??
         voices.find((item) => /^pt(?:[-_]|$)/i.test(item.lang));
+      if (localOnly && !voice) {
+        callbacks.onError("failed");
+        return;
+      }
       utterance.lang = voice?.lang ?? "pt-BR";
       if (voice) utterance.voice = voice;
       utterance.rate = bounded(options.rate, 1, 0.5, 1.5);

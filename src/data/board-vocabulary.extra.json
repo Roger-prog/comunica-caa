@@ -1,0 +1,65 @@
+{
+  "groups": [
+    {
+      "category": "Necessidades",
+      "words": ["Água", "Comer", "Banheiro", "Descansar", "Ajuda", "Dormir"]
+    },
+    {
+      "category": "Sentimentos",
+      "words": ["Feliz", "Triste", "Carinho", "Medo", "Com raiva", "Calmo"]
+    },
+    {
+      "category": "Sintomas",
+      "health": true,
+      "words": ["Dor", "Febre", "Tosse", "Falta de ar", "Tontura", "Náusea", "Vômito", "Cansaço", "Fraqueza", "Coceira", "Ferimento"]
+    },
+    {
+      "category": "Partes do corpo",
+      "health": true,
+      "words": ["Cabeça", "Pescoço", "Peito", "Barriga", "Costas", "Braço", "Mão", "Perna", "Pé", "Boca", "Olho", "Ouvido"]
+    },
+    {
+      "category": "Intensidade",
+      "health": true,
+      "words": ["Nenhuma dor", "Dor leve", "Dor moderada", "Dor forte", "Dor muito forte"]
+    },
+    {
+      "category": "Tempo dos sintomas",
+      "health": true,
+      "words": ["Agora", "Hoje", "Ontem", "Há alguns dias", "Sempre", "Às vezes", "Começou agora", "Está melhorando", "Está piorando"]
+    },
+    {
+      "category": "Atendimento",
+      "health": true,
+      "words": ["Médico", "Enfermeiro", "Exame", "Medicamento", "Alergia", "Receita", "Consulta", "Hospital"]
+    },
+    {
+      "category": "Comunicação durante a consulta",
+      "health": true,
+      "words": ["Não entendi", "Pode repetir?", "Fale mais devagar", "Preciso de ajuda", "Quero perguntar", "Quero responder", "Estou com medo", "Preciso de uma pausa"]
+    }
+  ],
+  "relatedTerms": {
+    "agua": ["beber", "sede"],
+    "mae": ["mamãe", "genitora", "mãe"],
+    "pai": ["papai"],
+    "mamae": ["mãe"],
+    "papai": ["pai"],
+    "dormir": ["sono"],
+    "banheiro": ["sanitário", "toalete", "vaso sanitário"],
+    "descansar": ["repouso", "descanso"],
+    "ajuda": ["socorro", "auxílio", "ajudar"],
+    "brincar": ["brincadeira", "jogar"],
+    "ola": ["oi", "cumprimento"],
+    "obrigado-obrigada": ["obrigado", "obrigada", "agradecer"],
+    "vovo-vovo": ["avó", "avô", "vovó", "vovô"],
+    "irmao-irma": ["irmão", "irmã"],
+    "dor": ["machucado", "doer"],
+    "ferimento": ["machucado", "lesão", "ferida"],
+    "febre": ["temperatura alta"],
+    "falta-de-ar": ["dificuldade para respirar", "respirar"],
+    "nausea": ["enjoo"],
+    "medicamento": ["remédio"],
+    "barriga": ["abdômen"]
+  }
+}

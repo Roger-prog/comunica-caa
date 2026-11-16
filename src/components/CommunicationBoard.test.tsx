@@ -1,7 +1,8 @@
 import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { PICTOGRAMS } from "../data/pictograms";
+import { CATALOG_PICTOGRAMS, NEEDS_PICTOGRAM_IDS, PICTOGRAMS } from "../data/pictograms";
+import { DEFAULT_BOARD_SETTINGS } from "../lib/patientBoardModel";
 import type { SpeechOptions } from "../hooks/useSpeech";
 import { CommunicationBoard } from "./CommunicationBoard";
 
@@ -42,6 +43,8 @@ function fixture() {
     voiceURI: "pt-BR-FranciscaNeural",
     rate: 1,
     largeCards: false,
+    catalog: PICTOGRAMS,
+    settings: { ...DEFAULT_BOARD_SETTINGS, homeSymbols: PICTOGRAMS.map((item) => item.id), pageSize: 24 },
   };
   return { props, prefetch, cancellations, prepareSentence, preparations };
 }
@@ -72,7 +75,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     fireEvent.click(screen.getByRole("button", { name: "Necessidades" }));
     expect(cancellations[0]).toHaveBeenCalledOnce();
     expect(prefetch).toHaveBeenLastCalledWith(
-      PICTOGRAMS.filter((item) => item.category === "Necessidades").map(
+      PICTOGRAMS.filter((item) => NEEDS_PICTOGRAM_IDS.includes(item.id)).map(
         (item) => item.label,
       ),
       { voiceURI: props.voiceURI, rate: props.rate },
@@ -199,6 +202,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
       voiceURI: props.voiceURI,
       rate: props.rate,
       segments: ["Água", "Mais", "Água"],
+      bundledOnly: true,
     });
     expect(prepareSentence).toHaveBeenCalledTimes(3);
   });
@@ -225,6 +229,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
       voiceURI: props.voiceURI,
       rate: props.rate,
       segments: ["Mais", "Água", "Água"],
+      bundledOnly: true,
     });
     expect(vi.mocked(props.speech.speak).mock.invocationCallOrder[0])
       .toBeLessThan(record.mock.invocationCallOrder[0]);
@@ -311,5 +316,38 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
       target: { value: "agua" },
     });
     expect(prepareSentence).toHaveBeenCalledOnce();
+  });
+
+  it("limits the initial view, searches the complete catalog and keeps the sentence across categories", () => {
+    const { props } = fixture();
+    render(<CommunicationBoard {...props} catalog={CATALOG_PICTOGRAMS} settings={DEFAULT_BOARD_SETTINGS} />);
+    expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(12);
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Animais$/ }));
+    expect(screen.getByRole("button", { name: "Falar Gato" })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" })).getByText("Água")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar símbolo" }), { target: { value: "ONIBUS" } });
+    expect(screen.getByRole("button", { name: "Falar Ônibus" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remover Água da posição 1" }));
+    expect(screen.getByRole("button", { name: "Ouvir frase" })).toBeDisabled();
+  });
+
+  it("keeps a personalized phrase on the device and out of history and prefetch", () => {
+    const { props, prefetch, prepareSentence } = fixture();
+    const custom = {
+      id: "custom-mamae", label: "Mamãe", spokenText: "Quero conversar com a minha mãe",
+      category: "Pessoas", symbol: "", color: "#eee", source: "custom" as const, privateSpeech: true,
+    };
+    render(<CommunicationBoard {...props} catalog={[...PICTOGRAMS, custom]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Meus símbolos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Falar Mamãe" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
+    expect(props.speech.speak).toHaveBeenLastCalledWith(custom.spokenText, {
+      voiceURI: props.voiceURI, rate: props.rate, deviceOnly: true, segments: [custom.spokenText],
+    });
+    expect(props.onSelect).not.toHaveBeenCalled();
+    expect(prepareSentence).not.toHaveBeenCalled();
+    expect(prefetch.mock.calls.flatMap(([words]) => words)).not.toContain(custom.spokenText);
   });
 });

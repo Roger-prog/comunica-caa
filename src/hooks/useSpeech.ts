@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  createWebSpeechEngine,
   type SpeechEngine,
   type SpeechFailure,
   type SpeechOptions,
@@ -17,12 +18,14 @@ export function useSpeech(engine?: SpeechEngine) {
     ),
   );
   const selectedEngine = engine ?? defaultEngine;
+  const [deviceEngine] = useState(() => createWebSpeechEngine(true));
   const supported = selectedEngine.supported;
   const [voices, setVoices] = useState<SpeechVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false);
   const generation = useRef(0);
+  const deviceInUse = useRef(false);
   const prefetches = useRef(new Set<() => void>());
 
   useEffect(() => {
@@ -38,11 +41,13 @@ export function useSpeech(engine?: SpeechEngine) {
       generation.current += 1;
       for (const cancel of prefetches.current) cancel();
       selectedEngine.cancel();
+      if (deviceInUse.current) deviceEngine.cancel();
+      deviceInUse.current = false;
       // Release session-scoped blobs and pending downloads on engine/user exit.
       // clearCache remains reusable during React StrictMode's cleanup cycle.
       selectedEngine.clearCache?.();
     };
-  }, [selectedEngine]);
+  }, [deviceEngine, selectedEngine]);
 
   const prefetch = useCallback(
     (texts: readonly string[], options: SpeechOptions = {}): (() => void) => {
@@ -94,16 +99,25 @@ export function useSpeech(engine?: SpeechEngine) {
   const stop = useCallback(() => {
     generation.current += 1;
     selectedEngine.cancel();
+    if (deviceInUse.current) deviceEngine.cancel();
+    deviceInUse.current = false;
     setSpeaking(false);
     setNeedsPlaybackGesture(false);
     setError(null);
-  }, [selectedEngine]);
+  }, [deviceEngine, selectedEngine]);
 
   const speak = useCallback(
     (text: string, options: SpeechOptions = {}) => {
       const message = text.trim();
       if (!message) return;
-      if (!supported) {
+      const useDevice = options.deviceOnly ||
+        (options.preferDevice && deviceEngine.getVoices().length > 0);
+      if (options.deviceOnly && !deviceEngine.getVoices().length) {
+        stop();
+        setError("Para ouvir esta mensagem, habilite uma voz local em português do Brasil no seu dispositivo.");
+        return;
+      }
+      if (!supported && !useDevice) {
         setError(
           "A leitura em voz alta não está disponível neste navegador. O texto continua visível na prancha.",
         );
@@ -113,6 +127,8 @@ export function useSpeech(engine?: SpeechEngine) {
       const request = ++generation.current;
       // Invalidate previous callbacks before cancel(), which can emit an error event.
       selectedEngine.cancel();
+      if (deviceInUse.current) deviceEngine.cancel();
+      deviceInUse.current = Boolean(useDevice);
       setError(null);
       setNeedsPlaybackGesture(false);
 
@@ -126,12 +142,14 @@ export function useSpeech(engine?: SpeechEngine) {
         setSpeaking(false);
         if (reason === "canceled" || reason === "interrupted") return;
         setNeedsPlaybackGesture(
-          reason === "not-allowed" && Boolean(selectedEngine.retryPlayback),
+          !useDevice && reason === "not-allowed" && Boolean(selectedEngine.retryPlayback),
         );
         setError(
-          reason === "not-allowed"
+          reason === "not-allowed" && !useDevice
             ? "O áudio está pronto. Toque em Ouvir áudio pronto para reproduzir."
-            : "Não foi possível gerar ou reproduzir a voz. Verifique a conexão e se o serviço de voz está disponível.",
+            : useDevice || options.bundledOnly
+              ? "Não foi possível reproduzir o áudio neste dispositivo. Confira as configurações de som."
+              : "Não foi possível gerar ou reproduzir a voz. Verifique a conexão e se o serviço de voz está disponível.",
         );
       };
       setSpeaking(true);
@@ -146,7 +164,7 @@ export function useSpeech(engine?: SpeechEngine) {
       try {
         // Start the request immediately; the engine plays the returned Blob
         // without a second download or a media-readiness event barrier.
-        const playback = selectedEngine.speak(message, options, {
+        const playback = (useDevice ? deviceEngine : selectedEngine).speak(message, options, {
           onEnd,
           onError,
         });
@@ -155,7 +173,7 @@ export function useSpeech(engine?: SpeechEngine) {
         failedToStart();
       }
     },
-    [selectedEngine, supported],
+    [deviceEngine, selectedEngine, stop, supported],
   );
 
   const retryPlayback = useCallback(() => {

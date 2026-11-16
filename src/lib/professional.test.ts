@@ -8,6 +8,7 @@ import {
   listProfessionalPatients,
   redeemInvitation,
   revokeMember,
+  setBoardMemberAccess,
   validateReportPeriod,
 } from "./professional";
 
@@ -121,13 +122,32 @@ describe("professional service: invitation boundaries", () => {
 
   it("lists and revokes only the explicitly selected child and professional", async () => {
     const controller = new AbortController();
-    const members = [{ professional_id: PROFESSIONAL, professional_name: "Profissional fictício", created_at: "2026-11-02T15:00:00Z" }];
-    resolveQuery = (query) => result(query.source === "rpc:list_caa_members" ? members : true);
+    const members = [{ professional_id: PROFESSIONAL, professional_name: "Profissional fictício", created_at: "2026-11-02T15:00:00Z", board_access: true }];
+    resolveQuery = (query) => {
+      if (query.source === "rpc:list_caa_members") {
+        return result(members.map(({ board_access: _permission, ...member }) => member));
+      }
+      if (query.source === "caa_members") return result([{ professional_id: PROFESSIONAL, board_access: true }]);
+      return result(true);
+    };
     await expect(listGuardianMembers(CHILD, controller.signal)).resolves.toEqual(members);
     expect(queries[0].args("abortSignal")).toEqual([controller.signal]);
+    expect(queries[1].args("eq")).toEqual(["crianca_id", CHILD]);
+    expect(queries[1].args("abortSignal")).toEqual([controller.signal]);
     await revokeMember(CHILD, PROFESSIONAL);
     expect(mocked.client.rpc).toHaveBeenLastCalledWith("revoke_caa_member", { p_crianca_id: CHILD, p_professional_id: PROFESSIONAL });
     await expect(revokeMember("not-a-patient", PROFESSIONAL)).rejects.toThrow("perfil válido");
+  });
+
+  it("treats board permission as an explicit, separately revocable opt-in", async () => {
+    resolveQuery = (query) => result(query.parameters?.p_allowed);
+    await setBoardMemberAccess(CHILD, PROFESSIONAL, true);
+    await setBoardMemberAccess(CHILD, PROFESSIONAL, false);
+    expect(mocked.client.rpc.mock.calls).toEqual([
+      ["set_caa_board_member_access", { p_crianca_id: CHILD, p_professional_id: PROFESSIONAL, p_allowed: true }],
+      ["set_caa_board_member_access", { p_crianca_id: CHILD, p_professional_id: PROFESSIONAL, p_allowed: false }],
+    ]);
+    await expect(setBoardMemberAccess(CHILD, "invalid", false)).rejects.toThrow("perfil válido");
   });
 });
 
@@ -230,13 +250,14 @@ describe("professional service: complete scoped reports", () => {
     const ids = Array.from({ length: 601 }, (_, index) => uuid(index + 1));
     let memberPages = 0;
     resolveQuery = (query) => {
-      if (query.source === "caa_members") return result(([ids.slice(0, 500), ids.slice(500), []][memberPages++] ?? []).map((crianca_id) => ({ crianca_id })));
+      if (query.source === "caa_members") return result(([ids.slice(0, 500), ids.slice(500), []][memberPages++] ?? []).map((crianca_id) => ({ crianca_id, board_access: crianca_id === ids[600] })));
       const batch = query.args("in")?.[1] as string[];
       const after = query.args("gt")?.[1] as string | undefined;
       return result(batch.filter((id) => !after || id > after).map((id) => ({ id, usuario_id: OWNER, nome: `Paciente ${id.slice(-4)}`, created_at: "2026-03-01T00:00:00Z", updated_at: "2026-03-01T00:00:00Z" })));
     };
     const patients = await listProfessionalPatients();
     expect(patients).toHaveLength(601);
+    expect(patients.filter(({ board_access }) => board_access).map(({ id }) => id)).toEqual([ids[600]]);
     const membershipQueries = queries.filter((query) => query.source === "caa_members");
     expect(membershipQueries).toHaveLength(3);
     expect(membershipQueries[1].args("gt")).toEqual(["crianca_id", ids[499]]);

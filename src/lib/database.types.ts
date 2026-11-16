@@ -1,4 +1,5 @@
 import type { AccountRole } from "../auth/authTypes";
+import type { BoardSettings, BoardSettingsRow, CatalogOverride, CustomSymbol } from "./patientBoardModel";
 
 export type Profile = {
   id: string;
@@ -13,6 +14,7 @@ export type Crianca = {
   nome: string;
   created_at: string;
   updated_at: string;
+  board_access?: boolean;
 };
 export type Comunicacao = {
   id: string;
@@ -36,11 +38,13 @@ export type CaaMember = {
   crianca_id: string;
   professional_id: string;
   created_at: string;
+  board_access: boolean;
 };
 export type ProfessionalMember = {
   professional_id: string;
   professional_name: string;
   created_at: string;
+  board_access?: boolean;
 };
 
 export type Database = {
@@ -99,6 +103,24 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      caa_board_settings: {
+        Row: BoardSettingsRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      caa_custom_symbols: {
+        Row: CustomSymbol;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      caa_catalog_overrides: {
+        Row: CatalogOverride;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: {
       caa_events: { Row: Comunicacao; Relationships: [] };
@@ -132,6 +154,52 @@ export type Database = {
       revoke_caa_member: {
         Args: { p_crianca_id: string; p_professional_id: string };
         Returns: boolean;
+      };
+      set_caa_board_member_access: {
+        Args: { p_crianca_id: string; p_professional_id: string; p_allowed: boolean };
+        Returns: boolean;
+      };
+      has_caa_board_access: {
+        Args: { p_crianca_id: string };
+        Returns: boolean;
+      };
+      save_caa_board_settings: {
+        Args: { p_crianca_id: string; p_settings: BoardSettings; p_expected_version: number };
+        Returns: BoardSettingsRow[];
+      };
+      save_caa_custom_symbol: {
+        Args: {
+          p_crianca_id: string;
+          p_id: string | null;
+          p_label: string;
+          p_speech_text: string;
+          p_categories: string[];
+          p_arasaac_id: number | null;
+          p_image_path: string | null;
+          p_hidden: boolean;
+          p_expected_version: number;
+        };
+        Returns: { symbol: CustomSymbol; retired_path: string | null }[];
+      };
+      delete_caa_custom_symbol: {
+        Args: { p_crianca_id: string; p_id: string; p_expected_version: number };
+        Returns: { retired_path: string | null }[];
+      };
+      save_caa_catalog_override: {
+        Args: { p_crianca_id: string; p_symbol_id: string; p_arasaac_id: number | null };
+        Returns: undefined;
+      };
+      reserve_caa_symbol_image: {
+        Args: { p_crianca_id: string; p_authorized: boolean };
+        Returns: string;
+      };
+      discard_caa_symbol_image: {
+        Args: { p_crianca_id: string; p_path: string };
+        Returns: undefined;
+      };
+      list_caa_symbol_image_cleanup: {
+        Args: { p_crianca_id: string };
+        Returns: string[];
       };
     };
     Enums: { [_ in never]: never };

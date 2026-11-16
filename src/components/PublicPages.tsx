@@ -31,6 +31,9 @@ function PublicLayout({ children }: { children: ReactNode }) {
             <Link to="/privacidade" className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-brand-700">
               Privacidade
             </Link>
+            <Link to="/creditos" className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-brand-700">
+              Créditos
+            </Link>
             <Link to="/login" className="button-secondary">Entrar</Link>
           </nav>
         </header>
@@ -112,6 +115,28 @@ export function AboutPage() {
   );
 }
 
+export function CreditsPage() {
+  return (
+    <PublicLayout>
+      <article className="surface mx-auto max-w-3xl p-6 sm:p-10">
+        <h1 className="text-3xl font-semibold tracking-tight">Créditos dos pictogramas</h1>
+        <p className="mt-5 leading-8 text-stone-700">
+          Pictogramas de Sergio Palao, pertencentes ao Governo de Aragão e
+          disponibilizados pelo ARASAAC sob licença Creative Commons BY-NC-SA.
+        </p>
+        <p className="mt-3 leading-8 text-stone-700">
+          O uso comercial dos pictogramas exige autorização específica do titular.
+          Obras derivadas desses recursos devem preservar a atribuição e a licença.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a className="button-secondary" href="https://arasaac.org/terms-of-use">Termos do ARASAAC</a>
+          <a className="button-secondary" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">Licença CC BY-NC-SA</a>
+        </div>
+      </article>
+    </PublicLayout>
+  );
+}
+
 function PrivacySection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-8" aria-label={title}>
@@ -148,13 +173,16 @@ export function PrivacyPage() {
           <p>
             O responsável informa os nomes dos perfis de crianças e utiliza a
             prancha. O sistema registra o símbolo selecionado, seu texto, sua
-            categoria, a data e o perfil ao qual o registro pertence. Também
-            armazena convites temporários e vínculos com profissionais.
+            categoria, a data e o perfil ao qual o registro pertence. As
+            seleções de saúde e de símbolos próprios e a reprodução de frases
+            que os incluem são excluídas desse registro. Também são armazenados
+            convites temporários e vínculos com profissionais.
           </p>
           <p>
-            Preferências de voz, velocidade e tamanho dos cartões ficam no
-            armazenamento do navegador. Informações de sessão permitem manter
-            o acesso e concluir os fluxos de autenticação e recuperação de senha.
+            A personalização por paciente inclui preferências da prancha,
+            símbolos próprios, frases faladas e, quando autorizadas, fotografias.
+            Os ajustes gerais da demonstração ficam no navegador. Informações
+            de sessão permitem manter o acesso e recuperar a senha.
           </p>
         </PrivacySection>
         <PrivacySection title="Finalidades e acesso aos registros">
@@ -166,8 +194,11 @@ export function PrivacyPage() {
           </p>
           <p>
             O responsável acessa os perfis e registros associados à sua conta.
-            O profissional acessa para consulta os pacientes vinculados por
-            convite. O responsável pode remover o vínculo profissional.
+            O profissional pode consultar o histórico dos pacientes vinculados
+            por convite. A personalização e o acesso a fotografias exigem
+            autorização separada no vínculo. O responsável pode retirar essa
+            autorização ou revogar o vínculo. O servidor verifica o acesso
+            em cada solicitação de foto.
           </p>
         </PrivacySection>
         <PrivacySection title="Serviços utilizados">
@@ -179,9 +210,10 @@ export function PrivacyPage() {
             O Google participa da autenticação quando essa opção é escolhida.
           </p>
           <p>
-            Os áudios do vocabulário incluído são reproduzidos pelo navegador.
-            Quando um texto adicional utiliza o serviço de síntese de voz
-            configurado, esse texto é enviado ao serviço para gerar o áudio.
+            A busca no ARASAAC envia apenas termos escolhidos do vocabulário
+            público. A leitura pode usar gravações incluídas ou uma voz local.
+            Palavras do catálogo geral podem usar o serviço de voz configurado.
+            Frases da prancha e textos personalizados são lidos no dispositivo.
             Os relatórios PDF são preparados no navegador e baixados no
             dispositivo de quem os exporta.
           </p>
@@ -195,9 +227,10 @@ export function PrivacyPage() {
             atendimento e a conservação aplicável aos dados envolvidos.
           </p>
           <p>
-            O responsável que cadastra um perfil de criança deve ter autorização
-            para fornecer esses dados. O compartilhamento dos registros com um
-            profissional ocorre mediante vínculo por convite.
+            Quem inclui uma foto confirma que possui autorização para usá-la
+            na prancha. Considere a pessoa retratada e seu responsável legal,
+            quando aplicável. Ao substituir ou excluir uma foto, ela deixa de
+            ficar disponível na prancha e é encaminhada para remoção.
           </p>
         </PrivacySection>
       </article>

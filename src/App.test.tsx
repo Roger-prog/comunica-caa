@@ -155,7 +155,7 @@ describe("App: PIN e interface do modo criança", () => {
       screen.queryByLabelText("Filtrar símbolos por categoria"),
     ).not.toBeInTheDocument();
     expect(document.querySelector("footer")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(24);
+    expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(12);
     expect(
       within(sentence()).getByText("Água", { exact: true }),
     ).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe("App: PIN e interface do modo criança", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(24);
+    expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(12);
 
     fireEvent.click(
       screen.getByRole("button", {

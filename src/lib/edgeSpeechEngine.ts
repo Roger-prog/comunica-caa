@@ -492,6 +492,10 @@ export function createEdgeSpeechEngine(
             () => fail(playback, "failed"),
           );
         }
+        if (options.bundledOnly) {
+          fail(playback, "failed");
+          return;
+        }
         const blob = cached(request.key);
         if (blob) return playBlob(playback, blob, volume);
         const download = acquireDownload(request);

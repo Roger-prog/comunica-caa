@@ -11,6 +11,7 @@ import {
   listGuardianMembers,
   ProfessionalError,
   revokeMember,
+  setBoardMemberAccess,
 } from "../lib/professional";
 
 export function PatientInvitation({
@@ -105,6 +106,29 @@ export function PatientInvitation({
     }
   }
 
+  async function changeBoardAccess(member: ProfessionalMember) {
+    if (!child || preview || pending) return;
+    const request = context.current;
+    const allowed = !member.board_access;
+    setPending(true);
+    setError(null);
+    try {
+      await setBoardMemberAccess(child.id, member.professional_id, allowed);
+      if (context.current === request) {
+        setMembers((current) => current.map((linked) =>
+          linked.professional_id === member.professional_id
+            ? { ...linked, board_access: allowed }
+            : linked,
+        ));
+      }
+    } catch {
+      if (context.current === request)
+        setError("Não foi possível atualizar a permissão da prancha. Atualize os vínculos e tente novamente.");
+    } finally {
+      if (context.current === request) setPending(false);
+    }
+  }
+
   return (
     <section className="surface p-6" aria-labelledby="patient-invitation-title">
       <div className="mb-3 flex items-center gap-2 text-brand-700">
@@ -187,6 +211,12 @@ export function PatientInvitation({
         </div>
       )}
       <h3 className="mt-6 font-semibold">Profissionais vinculados</h3>
+      {members.length > 0 && (
+        <p className="mt-2 text-sm text-stone-600" id="patient-board-sharing">
+          Autorize a edição da prancha para permitir que o profissional configure os símbolos,
+          veja as fotos privadas e envie imagens autorizadas pela família.
+        </p>
+      )}
       {loading ? (
         <p role="status" className="mt-2 text-sm text-stone-500">
           Carregando vínculos…
@@ -206,15 +236,30 @@ export function PatientInvitation({
                   Vinculado em{" "}
                   {new Date(member.created_at).toLocaleDateString("pt-BR")}
                 </p>
+                <p className="mt-1 text-xs text-stone-600" role="status">
+                  {member.board_access ? "Edição da prancha autorizada" : "Acesso ao histórico e aos relatórios"}
+                </p>
               </div>
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={pending}
-                onClick={() => void revoke(member.professional_id)}
-              >
-                Remover vínculo
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={pending}
+                  aria-describedby="patient-board-sharing"
+                  aria-label={`${member.board_access ? "Retirar acesso à prancha" : "Autorizar edição da prancha"} para ${member.professional_name}`}
+                  onClick={() => void changeBoardAccess(member)}
+                >
+                  {member.board_access ? "Retirar acesso à prancha" : "Autorizar edição da prancha"}
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={pending}
+                  onClick={() => void revoke(member.professional_id)}
+                >
+                  Remover vínculo
+                </button>
+              </div>
             </li>
           ))}
         </ul>

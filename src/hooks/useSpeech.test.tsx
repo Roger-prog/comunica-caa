@@ -114,6 +114,20 @@ describe("useSpeech", () => {
     expect(result.current.voices).toEqual([brazilianVoice]);
   });
 
+  it("plays private text with a local Brazilian voice and refuses a cloud-only voice", () => {
+    const { result } = renderHook(() => useSpeech());
+    const privateText = "Minha mensagem pessoal";
+    act(() => result.current.speak(privateText, { deviceOnly: true }));
+    expect(synthesis.speak.mock.calls[0][0]).toMatchObject({ text: privateText, voice: brazilianVoice });
+    expect(neuralEngine.speak).not.toHaveBeenCalled();
+    synthesis.speak.mockClear();
+    synthesis.getVoices.mockReturnValue([{ ...brazilianVoice, localService: false }]);
+    act(() => result.current.speak(privateText, { deviceOnly: true }));
+    expect(synthesis.speak).not.toHaveBeenCalled();
+    expect(neuralEngine.speak).not.toHaveBeenCalled();
+    expect(result.current.error).toContain("voz local em português do Brasil");
+  });
+
   it("uses a Portuguese language hint when no voices have loaded", () => {
     synthesis.getVoices.mockReturnValue([]);
     const { result } = renderNativeSpeech();
