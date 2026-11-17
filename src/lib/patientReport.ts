@@ -1,7 +1,8 @@
 import type { jsPDF } from "jspdf";
+import { eventType, eventTypeLabel, summarizeActivity, todayInSaoPaulo, type ActivityPeriod } from "./activityEvents";
 import type { Comunicacao } from "./database.types";
 
-export type PatientReportPeriod = { from: string; to: string };
+export type PatientReportPeriod = ActivityPeriod;
 export type PatientReportInput = {
   patient: { id: string; nome: string };
   events: readonly Comunicacao[];
@@ -15,9 +16,6 @@ const DAY_MS = 86_400_000;
 const dateTime = new Intl.DateTimeFormat("pt-BR", {
   timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric",
   hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
-});
-const localDay = new Intl.DateTimeFormat("sv-SE", {
-  timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
 });
 
 // Core PDF fonts support Portuguese Latin characters. Pictogram emoji and
@@ -55,10 +53,10 @@ function validate(input: PatientReportInput) {
     const timestamp = new Date(event.created_at);
     if (event.crianca_id !== input.patient.id || !Number.isFinite(timestamp.getTime()))
       throw new Error("Há registros incompatíveis com o paciente selecionado.");
-    const day = localDay.format(timestamp);
+    const day = todayInSaoPaulo(timestamp);
     if (day < input.period.from || day > input.period.to)
       throw new Error("Há registros fora do período selecionado. Atualize os dados antes de exportar.");
-    if (!text(event.rotulo) || !text(event.categoria))
+    if (!text(event.rotulo) || (eventType(event) !== "message_playback" && !text(event.categoria ?? "")))
       throw new Error("Há registros incompletos. Atualize os dados antes de exportar.");
   }
   return { patientName, generatedAt };
@@ -94,8 +92,8 @@ export async function buildPatientReport(input: PatientReportInput): Promise<jsP
   const events = [...input.events].sort((a, b) =>
     Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id),
   );
-  const days = new Set(events.map((event) => localDay.format(new Date(event.created_at)))).size;
-  const symbols = new Set(events.map((event) => event.pictograma_id)).size;
+  const days = new Set(events.map((event) => todayInSaoPaulo(new Date(event.created_at)))).size;
+  const summary = summarizeActivity(events);
 
   function brand() {
     doc.setFont("helvetica", "bold");
@@ -134,35 +132,41 @@ export async function buildPatientReport(input: PatientReportInput): Promise<jsP
   doc.text("Datas e horários: America/Sao_Paulo (UTC-03:00).", margin, metadataY + 11);
 
   const summaryY = metadataY + 18;
-  const cardWidth = (usable - 8) / 3;
+  const cardWidth = (usable - 12) / 4;
   [
-    ["REGISTROS", events.length], ["SÍMBOLOS UTILIZADOS", symbols], ["DIAS COM REGISTROS", days],
+    ["SELEÇÕES DE SÍMBOLOS", summary.selections], ["MENSAGENS REPRODUZIDAS", summary.messages],
+    ["SÍMBOLOS DISTINTOS", summary.symbols], ["DIAS COM REGISTROS", days],
   ].forEach(([label, value], index) => {
     const x = margin + index * (cardWidth + 4);
     doc.setFillColor(247, 244, 250);
     doc.roundedRect(x, summaryY, cardWidth, 19, 2, 2, "F");
     doc.setFontSize(7);
     doc.setTextColor(...muted);
-    doc.text(String(label), x + 4, summaryY + 6);
+    doc.text(String(label), x + 4, summaryY + 5, { maxWidth: cardWidth - 8 });
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.setTextColor(...purple);
-    doc.text(Number(value).toLocaleString("pt-BR"), x + 4, summaryY + 14);
+    doc.text(Number(value).toLocaleString("pt-BR"), x + 4, summaryY + 15);
     doc.setFont("helvetica", "normal");
   });
 
   autoTable(doc, {
     startY: summaryY + 26,
     margin: { left: margin, right: margin, top: 51, bottom: 20 },
-    head: [["Data e hora", "Símbolo", "Categoria"]],
+    head: [["Data e hora", "Tipo", "Símbolo ou mensagem", "Categoria"]],
     body: events.length
-      ? events.map((event) => [dateTime.format(new Date(event.created_at)), text(event.rotulo), text(event.categoria)])
-      : [[{ content: "Nenhum registro de comunicação no período selecionado.", colSpan: 3, styles: { halign: "center", textColor: muted, minCellHeight: 18, valign: "middle" } }]],
+      ? events.map((event) => [
+        dateTime.format(new Date(event.created_at)),
+        eventTypeLabel(event) + (event.symbol_source === "custom" ? "\nPersonalizado" : ""),
+        text(event.rotulo),
+        event.categoria ? text(event.categoria) : "-",
+      ])
+      : [[{ content: "Nenhum registro de comunicação no período selecionado.", colSpan: 4, styles: { halign: "center", textColor: muted, minCellHeight: 18, valign: "middle" } }]],
     theme: "striped",
     styles: { font: "helvetica", fontSize: 8.5, cellPadding: 3, overflow: "linebreak", textColor: dark, lineColor: [235, 230, 240], lineWidth: 0.1 },
     headStyles: { fillColor: purple, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
     alternateRowStyles: { fillColor: [250, 248, 252] },
-    columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 80 }, 2: { cellWidth: usable - 122 } },
+    columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 34 }, 2: { cellWidth: 67 }, 3: { cellWidth: usable - 136 } },
     rowPageBreak: "avoid",
     showHead: "everyPage",
   });

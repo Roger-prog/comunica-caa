@@ -19,7 +19,7 @@ const PAGE_SIZE = 500;
 const numericCode = (code: string) =>
   code.length === 6 && /^[0-9]+$/.test(code);
 const FIELDS =
-  "id,usuario_id,crianca_id,pictograma_id,rotulo,categoria,created_at";
+  "id,usuario_id,crianca_id,pictograma_id,rotulo,categoria,created_at,event_type,symbol_source,arasaac_id";
 const generic = () =>
   new ProfessionalError(
     "Não foi possível acessar os dados. Verifique sua conexão e tente novamente.",
@@ -226,32 +226,57 @@ export async function listProfessionalPatients(
   return children.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-export async function fetchPatientEvents(
+// PostgREST preserves PostgreSQL microseconds, while Date.parse truncates them.
+function eventTimestamp(value: string) {
+  const fraction = value.match(/\.(\d{1,6})(?:Z|[+-]\d{2}:\d{2})$/i)?.[1] ?? "";
+  return Date.parse(value) * 1000 + Number(fraction.padEnd(6, "0").slice(3));
+}
+
+type EventPeriod = { from: string; to: string };
+
+export function fetchPatientEvents(
   id: string,
-  period: { from: string; to: string },
+  period: EventPeriod,
+  signal?: AbortSignal,
+): Promise<Comunicacao[]> {
+  return fetchScopedEvents(id, period, "professional", signal);
+}
+
+export function fetchGuardianPatientEvents(
+  id: string,
+  period: EventPeriod,
+  signal?: AbortSignal,
+): Promise<Comunicacao[]> {
+  return fetchScopedEvents(id, period, "guardian", signal);
+}
+
+async function fetchScopedEvents(
+  id: string,
+  period: EventPeriod,
+  scope: "guardian" | "professional",
   signal?: AbortSignal,
 ): Promise<Comunicacao[]> {
   aborted(signal);
   patientId(id);
   const { start, end } = validateReportPeriod(period);
-  const professionalId = await userId();
+  const readerId = await userId();
   aborted(signal);
-  const requireMembership = async () => {
-    let query = client()
-      .from("caa_members")
-      .select("id")
-      .eq("crianca_id", id)
-      .eq("professional_id", professionalId);
+  const requireAccess = async () => {
+    let query = scope === "guardian"
+      ? client().from("criancas").select("id").eq("id", id).eq("usuario_id", readerId)
+      : client().from("caa_members").select("id").eq("crianca_id", id).eq("professional_id", readerId);
     if (signal) query = query.abortSignal(signal);
     const { data, error } = await query.maybeSingle();
     aborted(signal);
     if (error) throw generic();
     if (!data)
       throw new ProfessionalError(
-        "O vínculo com este paciente não está disponível. Atualize a lista de pacientes.",
+        scope === "guardian"
+          ? "O paciente selecionado não está disponível. Atualize a lista de pacientes."
+          : "O vínculo com este paciente não está disponível. Atualize a lista de pacientes.",
       );
   };
-  await requireMembership();
+  await requireAccess();
   const events: Comunicacao[] = [];
   const seen = new Set<string>();
   let cursor: Comunicacao | undefined;
@@ -269,6 +294,7 @@ export async function fetchPatientEvents(
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(PAGE_SIZE);
+    if (scope === "guardian") query = query.eq("usuario_id", readerId);
     if (cursor)
       query = query.or(
         `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
@@ -281,8 +307,9 @@ export async function fetchPatientEvents(
     for (const row of rows) {
       if (
         row.crianca_id !== id ||
+        (scope === "guardian" && row.usuario_id !== readerId) ||
         !UUID.test(row.id) ||
-        !Number.isFinite(Date.parse(row.created_at))
+        !Number.isFinite(eventTimestamp(row.created_at))
       )
         throw generic();
       if (!seen.has(row.id)) {
@@ -292,19 +319,17 @@ export async function fetchPatientEvents(
     }
     if (events.length > MAX_EVENTS)
       throw new ProfessionalError(
-        "O período contém mais de 10.000 registros. Reduza o período para exportar todos os dados.",
+        "O período contém mais de 10.000 registros. Reduza o período para consultar todos os dados.",
       );
     if (!rows.length) break;
     const last = rows.at(-1)!;
-    if (
-      cursor &&
-      (Date.parse(last.created_at) > Date.parse(cursor.created_at) ||
-        (Date.parse(last.created_at) === Date.parse(cursor.created_at) &&
-          last.id >= cursor.id))
-    )
-      throw generic();
+    if (cursor) {
+      const timestampChange = eventTimestamp(last.created_at) - eventTimestamp(cursor.created_at);
+      if (timestampChange > 0 || (timestampChange === 0 && last.id >= cursor.id))
+        throw generic();
+    }
     cursor = last;
   }
-  await requireMembership();
+  await requireAccess();
   return events;
 }

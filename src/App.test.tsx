@@ -118,6 +118,7 @@ describe("App: PIN e interface do modo comunicação", () => {
     expect(speech.speak).toHaveBeenCalledWith("Água", {
       voiceURI: "",
       rate: 1,
+      offlineOnly: true,
     });
     const sentence = () =>
       screen.getByRole("region", { name: "O que vamos comunicar?" });

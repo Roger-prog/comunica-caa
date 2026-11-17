@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ArrowLeft, ArrowRight, Check, ImageOff, LockKeyhole, Plus, Search, Square, Star, Undo2, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, LockKeyhole, Plus, Search, Square, Star, Undo2, Volume2, X } from "lucide-react";
 import {
   CATALOG_CATEGORIES,
   CATALOG_PICTOGRAMS,
@@ -15,10 +15,11 @@ import {
 import { hasBundledSpeech } from "../data/bundledSpeech";
 import type { useSpeech } from "../hooks/useSpeech";
 import { DEFAULT_BOARD_SETTINGS, type BoardQuickPhrase, type BoardSettings } from "../lib/patientBoardModel";
-import { PatientPhoto } from "./PatientPhoto";
+import { PictogramPicture } from "./PictogramPicture";
 
 interface CommunicationBoardProps {
   onSelect: (pictogram: Pictogram) => void;
+  onPlayback: (message: string) => void;
   speech: ReturnType<typeof useSpeech>;
   voiceURI: string;
   rate: number;
@@ -50,41 +51,15 @@ function orderedByIds(items: readonly Pictogram[], ids: readonly string[]) {
   });
 }
 
-export function PictogramPicture({
-  item, size = "regular", compact = false,
-}: { item: Pictogram; size?: BoardSettings["imageSize"]; compact?: boolean }) {
-  const [failedUrl, setFailedUrl] = useState("");
-  const fallback = <ImageOff size={20} className="text-stone-500" />;
-  const pictureSize = compact ? "size-8" : {
-    small: "size-12", regular: "size-16 sm:size-20", large: "size-20 sm:size-24",
-  }[size];
-  if (!item.imagePath && !item.imageUrl && !item.symbol) return null;
-  return (
-    <span
-      aria-hidden="true"
-      className={pictureSize + " flex max-w-full shrink-0 items-center justify-center overflow-hidden rounded-xl text-3xl"}
-      style={{ backgroundColor: item.color }}
-    >
-      {item.imagePath ? (
-        <PatientPhoto path={item.imagePath} alt="" className="size-full object-contain" fallback={fallback} />
-      ) : item.imageUrl && failedUrl !== item.imageUrl ? (
-        <img src={item.imageUrl} alt="" loading="lazy" decoding="async"
-          referrerPolicy="no-referrer" className="size-full object-contain"
-          onError={() => setFailedUrl(item.imageUrl!)} />
-      ) : item.symbol ? <span>{item.symbol}</span> : fallback}
-    </span>
-  );
-}
-
 export function CommunicationBoard({
-  onSelect, speech, voiceURI, rate, largeCards, isChildMode = false,
+  onSelect, onPlayback, speech, voiceURI, rate, largeCards, isChildMode = false,
   onStartCommunication, modePending,
   onUnlockRequest, catalog = CATALOG_PICTOGRAMS, settings = DEFAULT_BOARD_SETTINGS,
 }: CommunicationBoardProps) {
   const [query, setQuery] = useState("");
   const [selectedView, setView] = useState<View>("home");
   const view = selectedView === "quick" && !settings.quickPhrasesEnabled ? "home" : selectedView;
-  const [category, setCategory] = useState("");
+  const [selectedCategory, setCategory] = useState("");
   const [page, setPage] = useState(0);
   const [sentence, setSentence] = useState<Pictogram[]>([]);
   const [lastSelected, setLastSelected] = useState<string | null>(null);
@@ -110,6 +85,8 @@ export function CommunicationBoard({
     ];
   }, [catalog, settings.categoryOrder, settings.enabledCategories, settings.favoriteCategories, view]);
 
+  const category = categoryChoices.includes(selectedCategory) ? selectedCategory : "";
+
   const results = useMemo(() => {
     if (activeQuery) return searchPictograms(catalog, activeQuery).sort((a, b) => {
       const priority = (item: Pictogram) =>
@@ -123,23 +100,20 @@ export function CommunicationBoard({
     if (view === "needs") return orderedByIds(catalog, NEEDS_PICTOGRAM_IDS);
     if (view === "favorites") return orderedByIds(catalog, settings.favorites);
     if (view === "custom") return catalog.filter((item) => item.source === "custom");
-    if (!category || !categoryChoices.includes(category)) return [];
+    if (!category) return [];
     const matching = catalog.filter((item) => categoryMatch(item, category));
     const customOrder = settings.symbolOrder[toCategoryId(category)] ?? [];
     const first = orderedByIds(matching, customOrder);
     const promoted = new Set(first.map((item) => item.id));
     return [...first, ...matching.filter((item) => !promoted.has(item.id))];
-  }, [activeQuery, catalog, category, categoryChoices, settings.favorites, settings.homeSymbols, settings.symbolOrder, view]);
+  }, [activeQuery, catalog, category, settings.favorites, settings.homeSymbols, settings.symbolOrder, view]);
 
   const showingGroups = !activeQuery && usingCategory && !category;
   const resultCount = showingQuick ? settings.quickPhrases.length : results.length;
   const pageCount = Math.max(1, Math.ceil(resultCount / settings.pageSize));
   const visiblePage = Math.min(page, pageCount - 1);
-  // Keep the configured maximum and balance the pages without changing order.
-  const minPageSize = Math.floor(resultCount / pageCount);
-  const fullerPages = resultCount % pageCount;
-  const pageStart = visiblePage * minPageSize + Math.min(visiblePage, fullerPages);
-  const pageEnd = pageStart + minPageSize + Number(visiblePage < fullerPages);
+  const pageStart = visiblePage * settings.pageSize;
+  const pageEnd = pageStart + settings.pageSize;
   const visible = useMemo(() => results.slice(pageStart, pageEnd), [results, pageStart, pageEnd]);
   const duplicateLabels = useMemo(() => {
     const seen = new Set<string>();
@@ -151,21 +125,23 @@ export function CommunicationBoard({
     return duplicates;
   }, [results]);
   const spokenWords = useMemo(() => sentence.map(getPictogramSpeech), [sentence]);
-  const containsPrivateSymbols = sentence.some((item) => item.privateSpeech);
-  const requiresDevice = spokenWords.some((word) => !hasBundledSpeech(word)) ||
-    sentence.some((item) => item.source === "custom");
+  const canPrepare = sentence.every((item) => !item.privateSpeech) && spokenWords.every(hasBundledSpeech);
   const { prefetch, prepareSentence } = speech;
+
+  useEffect(() => {
+    if (page !== visiblePage) setPage(visiblePage);
+  }, [page, visiblePage]);
 
   useEffect(() => {
     const safeWords = visible.filter((item) => !item.privateSpeech)
       .map(getPictogramSpeech).filter(hasBundledSpeech);
-    if (safeWords.length) return prefetch(safeWords, { voiceURI, rate });
+    if (safeWords.length) return prefetch(safeWords, { voiceURI, rate, offlineOnly: true });
   }, [visible, prefetch, voiceURI, rate]);
 
   useEffect(() => {
-    if (!spokenWords.length || requiresDevice) return;
+    if (!spokenWords.length || !canPrepare) return;
     return prepareSentence(spokenWords, { voiceURI, rate });
-  }, [spokenWords, requiresDevice, prepareSentence, voiceURI, rate]);
+  }, [spokenWords, canPrepare, prepareSentence, voiceURI, rate]);
 
   function open(next: View) {
     setView(next);
@@ -174,26 +150,30 @@ export function CommunicationBoard({
     setPage(0);
   }
 
-  function speakSymbol(pictogram: Pictogram) {
-    const text = getPictogramSpeech(pictogram);
-    const bundled = hasBundledSpeech(text);
+  function playMessage(segments: readonly string[]) {
+    const text = segments.join(" ");
+    let started = false;
     speech.speak(text, {
-      voiceURI, rate,
-      ...(pictogram.source === "custom" || (pictogram.privateSpeech && !bundled) ? { deviceOnly: true }
-        : pictogram.privateSpeech ? { bundledOnly: true }
-        : !bundled ? { preferDevice: true } : {}),
+      voiceURI, rate, segments, offlineOnly: true,
+      onStart: () => {
+        if (started) return;
+        started = true;
+        onPlayback(text);
+      },
     });
   }
 
-  function select(pictogram: Pictogram, speak = settings.speakOnSelect) {
+  function select(pictogram: Pictogram, quickPhrase = false) {
     if (sentence.length >= settings.maxSentenceSymbols) {
       setLimitReached(true);
       return;
     }
-    if (speak) speakSymbol(pictogram);
+    if (!quickPhrase && settings.speakOnSelect) {
+      speech.speak(getPictogramSpeech(pictogram), { voiceURI, rate, offlineOnly: true });
+    }
     setSentence((current) => current.length < settings.maxSentenceSymbols ? [...current, pictogram] : current);
     setLastSelected(pictogram.id);
-    if (!pictogram.privateSpeech) onSelect(pictogram);
+    if (!quickPhrase) onSelect(pictogram);
   }
 
   function phraseSymbol(phrase: BoardQuickPhrase): Pictogram {
@@ -226,13 +206,7 @@ export function CommunicationBoard({
   }
 
   function playSentence() {
-    if (!sentence.length || !speech.supported) return;
-    speech.speak(spokenWords.join(" "), {
-      voiceURI, rate, segments: spokenWords,
-      ...(requiresDevice ? { deviceOnly: true } : { bundledOnly: true }),
-    });
-    // Keep existing per-symbol history while omitting sensitive messages.
-    if (!containsPrivateSymbols) sentence.forEach((pictogram) => onSelect(pictogram));
+    if (sentence.length && speech.supported) playMessage(spokenWords);
   }
 
   const cardSize = isChildMode || largeCards ? "large" : settings.cardSize;
@@ -306,6 +280,7 @@ export function CommunicationBoard({
         {!speech.supported && <p className="mt-2 text-sm text-stone-600">
           A leitura em voz alta está indisponível. Os símbolos continuam acessíveis.
         </p>}
+        {speech.notice && <p role="status" className="mt-2 rounded-xl bg-brand-50 p-3 text-sm text-brand-800">{speech.notice}</p>}
         {speech.error && <p role="alert" className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-800">{speech.error}</p>}
       </section>
 
@@ -375,9 +350,9 @@ export function CommunicationBoard({
                 <div className="flex flex-wrap gap-1.5">
                   <button type="button" className="board-control board-control-active" disabled={!speech.supported}
                     aria-label={"Ouvir: " + phrase.label}
-                    onClick={() => speakSymbol(phraseSymbol(phrase))}><Volume2 size={17} aria-hidden="true" /> Ouvir</button>
+                    onClick={() => playMessage([phrase.text])}><Volume2 size={17} aria-hidden="true" /> Ouvir</button>
                   <button type="button" className="board-control" aria-label={"Adicionar à frase: " + phrase.label}
-                    onClick={() => select(phraseSymbol(phrase), false)}><Plus size={17} aria-hidden="true" /> Adicionar</button>
+                    onClick={() => select(phraseSymbol(phrase), true)}><Plus size={17} aria-hidden="true" /> Adicionar</button>
                 </div>
               </article>
             ))}

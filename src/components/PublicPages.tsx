@@ -172,11 +172,12 @@ export function PrivacyPage() {
           </p>
           <p>
             O responsável informa os nomes dos perfis de crianças e utiliza a
-            prancha. O sistema registra o símbolo selecionado, seu texto, sua
-            categoria, a data e o perfil ao qual o registro pertence. As
-            seleções de saúde e de símbolos próprios e a reprodução de frases
-            que os incluem são excluídas desse registro. Também são armazenados
-            convites temporários e vínculos com profissionais.
+            prancha. Quando o histórico está ativo, o sistema registra as seleções
+            de símbolos, inclusive símbolos próprios, e o texto das mensagens cuja
+            leitura foi iniciada. Os registros incluem data, horário e perfil. As
+            seleções incluem o rótulo e a categoria do símbolo. As fotos privadas
+            ficam no armazenamento da prancha, sem cópias no histórico. Também são
+            armazenados convites temporários e vínculos com profissionais.
           </p>
           <p>
             A personalização por paciente inclui preferências da prancha,
@@ -211,9 +212,8 @@ export function PrivacyPage() {
           </p>
           <p>
             A busca no ARASAAC envia apenas termos escolhidos do vocabulário
-            público. A leitura pode usar gravações incluídas ou uma voz local.
-            Palavras do catálogo geral podem usar o serviço de voz configurado.
-            Frases da prancha e textos personalizados são lidos no dispositivo.
+            público. A prancha usa gravações incluídas ou uma voz local para
+            ler símbolos e frases, sem enviar esses textos a um serviço de voz.
             Os relatórios PDF são preparados no navegador e baixados no
             dispositivo de quem os exporta.
           </p>
@@ -221,8 +221,11 @@ export function PrivacyPage() {
         <PrivacySection title="Conservação e solicitações">
           <p>
             Os dados permanecem armazenados para disponibilizar a conta, os
-            perfis e o histórico do Comunica. Solicitações de acesso, correção
-            ou exclusão devem ser encaminhadas ao contato de privacidade.
+            perfis e o histórico do Comunica. Nos ajustes de cada perfil, o
+            responsável pode pausar novos registros e excluir todo o histórico
+            ou apenas registros anteriores a um período. Relatórios já baixados
+            são cópias locais. Outras solicitações de acesso, correção ou
+            exclusão podem ser encaminhadas ao contato de privacidade.
             O responsável pelo serviço avaliará a solicitação e informará o
             atendimento e a conservação aplicável aos dados envolvidos.
           </p>

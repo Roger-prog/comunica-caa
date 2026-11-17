@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Comunicacao } from "./database.types";
 import {
   createInvitation,
+  fetchGuardianPatientEvents,
   fetchPatientEvents,
   invitationMailto,
   listGuardianMembers,
@@ -59,6 +60,7 @@ const result = (data: unknown): Result => ({ data, error: null });
 const event = (index: number): Comunicacao => ({
   id: uuid(index + 1), usuario_id: OWNER, crianca_id: CHILD,
   pictograma_id: "agua", rotulo: "Água", categoria: "Necessidades",
+  event_type: "symbol_selection", symbol_source: "catalog", arasaac_id: 32408,
   created_at: new Date(Date.UTC(2026, 2, 20, 12) - index * 1000).toISOString(),
 });
 
@@ -292,6 +294,55 @@ describe("professional service: complete scoped reports", () => {
     resolveQuery = () => result([{ crianca_id: uuid(1) }]);
     await expect(listProfessionalPatients()).rejects.toThrow("Não foi possível acessar os dados");
     expect(queries).toHaveLength(2);
+  });
+});
+
+describe("guardian service: full patient activity in a period", () => {
+  beforeEach(() => {
+    mocked.client.auth.getUser.mockResolvedValue({ data: { user: { id: OWNER } }, error: null });
+  });
+
+  it("loads beyond the recent-history cap with both owner and patient filters", async () => {
+    const records = Array.from({ length: 503 }, (_, index) => event(index));
+    let pages = 0;
+    resolveQuery = (query) => query.source === "criancas" ? result({ id: CHILD }) :
+      result([records.slice(0, 500), records.slice(500), []][pages++] ?? []);
+    await expect(fetchGuardianPatientEvents(CHILD, PERIOD)).resolves.toEqual(records);
+    const events = queries.filter((query) => query.source === "caa_events");
+    expect(events).toHaveLength(3);
+    for (const query of events) {
+      expect(query.operations.filter(({ name }) => name === "eq").map(({ args }) => args)).toEqual([
+        ["crianca_id", CHILD], ["usuario_id", OWNER],
+      ]);
+      expect(query.args("select")?.[0]).toContain("event_type,symbol_source,arasaac_id");
+      expect(query.args("gte")).toEqual(["created_at", "2026-03-01T00:00:00-03:00"]);
+      expect(query.args("lt")).toEqual(["created_at", "2026-04-01T00:00:00-03:00"]);
+    }
+    const checks = queries.filter((query) => query.source === "criancas");
+    expect(checks).toHaveLength(2);
+    for (const query of checks) {
+      expect(query.operations.filter(({ name }) => name === "eq").map(({ args }) => args)).toEqual([
+        ["id", CHILD], ["usuario_id", OWNER],
+      ]);
+    }
+  });
+
+  it("preserves pages whose database timestamps differ below one millisecond", async () => {
+    const newest = { ...event(0), created_at: "2026-03-20T12:00:00.123456+00:00" };
+    const earlier = { ...event(1), created_at: "2026-03-20T12:00:00.123455+00:00" };
+    let pages = 0;
+    resolveQuery = (query) => query.source === "criancas" ? result({ id: CHILD }) :
+      result([[newest], [earlier], []][pages++] ?? []);
+    await expect(fetchGuardianPatientEvents(CHILD, PERIOD)).resolves.toEqual([newest, earlier]);
+  });
+
+  it("rejects inaccessible profiles or an event returned for another owner", async () => {
+    resolveQuery = () => result(null);
+    await expect(fetchGuardianPatientEvents(CHILD, PERIOD)).rejects.toThrow("paciente selecionado não está disponível");
+    expect(queries.map(({ source }) => source)).toEqual(["criancas"]);
+    resolveQuery = (query) => query.source === "criancas" ? result({ id: CHILD }) :
+      result([{ ...event(0), usuario_id: PROFESSIONAL }]);
+    await expect(fetchGuardianPatientEvents(CHILD, PERIOD)).rejects.toThrow("Não foi possível acessar os dados");
   });
 });
 

@@ -1,4 +1,5 @@
 import quickPhrases from "../data/default-quick-phrases.json";
+import { LOCAL_SPEECH_VOICE } from "./speechEngine";
 
 export type BoardQuickPhrase = { id: string; label: string; text: string };
 export const MAX_QUICK_PHRASES = 24;
@@ -23,6 +24,7 @@ export type BoardSettings = {
   voiceURI: string;
   rate: number;
   speakOnSelect: boolean;
+  historyRecording: boolean;
   maxSentenceSymbols: number;
   quickPhrasesEnabled: boolean;
   quickPhrases: BoardQuickPhrase[];
@@ -45,6 +47,7 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
   voiceURI: "",
   rate: 1,
   speakOnSelect: true,
+  historyRecording: true,
   maxSentenceSymbols: 40,
   quickPhrasesEnabled: true,
   quickPhrases: DEFAULT_QUICK_PHRASES,
@@ -133,9 +136,10 @@ export function normalizeBoardSettings(value: Partial<BoardSettings>): BoardSett
     favorites: strings(source.favorites, 256),
     homeSymbols: Array.isArray(source.homeSymbols) ? strings(source.homeSymbols, 36) : null,
     symbolOrder: order,
-    voiceURI: option(source.voiceURI, ["", "pt-BR-FranciscaNeural", "pt-BR-AntonioNeural"], ""),
+    voiceURI: option(source.voiceURI, ["", "pt-BR-FranciscaNeural", "pt-BR-AntonioNeural", LOCAL_SPEECH_VOICE], ""),
     rate: typeof source.rate === "number" && source.rate >= 0.5 && source.rate <= 1.5 ? source.rate : 1,
     speakOnSelect: source.speakOnSelect !== false,
+    historyRecording: source.historyRecording !== false,
     maxSentenceSymbols: integer(
       source.maxSentenceSymbols, MIN_SENTENCE_SYMBOLS, MAX_SENTENCE_SYMBOLS, DEFAULT_BOARD_SETTINGS.maxSentenceSymbols,
     ),

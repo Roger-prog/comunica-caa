@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { Comunicacao, Crianca, Profile } from "../lib/database.types";
 import type { Pictogram } from "../data/pictograms";
@@ -12,6 +12,10 @@ const demoChild: Crianca = {
   updated_at: new Date().toISOString(),
 };
 export const HISTORY_LIMIT = 500;
+const EMPTY_EVENTS: Comunicacao[] = [];
+type EventDetails = Pick<Comunicacao,
+  "event_type" | "symbol_source" | "arasaac_id" | "pictograma_id" | "rotulo" | "categoria"
+>;
 
 export function mergeEvents(
   previous: Comunicacao[],
@@ -23,8 +27,7 @@ export function mergeEvents(
     .sort(
       (a, b) =>
         b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
-    )
-    .slice(0, HISTORY_LIMIT);
+    );
 }
 
 function dataError(): string {
@@ -45,6 +48,9 @@ export function useWorkspace(
   const [byChild, setByChild] = useState<Record<string, Comunicacao[]>>({});
   const [loading, setLoading] = useState(!preview && enabled);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [olderByChild, setOlderByChild] = useState<Record<string, boolean>>({});
+  const historyRequest = useRef<AbortController | null>(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pendingWrites, setPendingWrites] = useState(0);
@@ -95,9 +101,14 @@ export function useWorkspace(
   }, [user?.id, preview, enabled, reloadVersion]);
 
   useEffect(() => {
-    if (!enabled || preview || !supabase || !user || !selectedId) return;
+    if (!enabled || preview || !supabase || !user || !selectedId) {
+      setHistoryLoading(false);
+      return;
+    }
     const controller = new AbortController();
-    let active = true;
+    historyRequest.current = controller;
+    setByChild((current) => ({ ...current, [selectedId]: EMPTY_EVENTS }));
+    setOlderByChild((current) => ({ ...current, [selectedId]: false }));
     setHistoryLoading(true);
     void Promise.resolve(
       supabase
@@ -107,28 +118,69 @@ export function useWorkspace(
         .eq("crianca_id", selectedId)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-        .limit(HISTORY_LIMIT)
+        .limit(HISTORY_LIMIT + 1)
         .abortSignal(controller.signal),
     )
       .then(({ data, error: requestError }) => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         if (requestError) throw new Error("history_load");
         setByChild((current) => ({
           ...current,
-          [selectedId]: mergeEvents(current[selectedId] ?? [], data),
+          [selectedId]: mergeEvents(current[selectedId] ?? [], data.slice(0, HISTORY_LIMIT)),
         }));
+        setOlderByChild((current) => ({ ...current, [selectedId]: data.length > HISTORY_LIMIT }));
       })
       .catch(() => {
-        if (active) setError(dataError());
+        if (!controller.signal.aborted) setError(dataError());
       })
       .finally(() => {
-        if (active) setHistoryLoading(false);
+        if (historyRequest.current !== controller) return;
+        historyRequest.current = null;
+        if (!controller.signal.aborted) setHistoryLoading(false);
       });
     return () => {
-      active = false;
-      controller.abort();
+      historyRequest.current?.abort();
+      historyRequest.current = null;
     };
-  }, [user?.id, preview, enabled, selectedId, reloadVersion]);
+  }, [user?.id, preview, enabled, selectedId, reloadVersion, historyVersion]);
+
+  const events = byChild[selectedId] ?? EMPTY_EVENTS;
+  const hasOlder = olderByChild[selectedId] === true;
+
+  async function loadOlder() {
+    const oldest = events.at(-1);
+    if (!hasOlder || !oldest || !supabase || !user || preview || historyRequest.current) return;
+    const controller = new AbortController();
+    historyRequest.current = controller;
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      const { data, error: requestError } = await supabase
+        .from("comunicacoes")
+        .select("*")
+        .eq("usuario_id", user.id)
+        .eq("crianca_id", selectedId)
+        .or(`created_at.lt.${oldest.created_at},and(created_at.eq.${oldest.created_at},id.lt.${oldest.id})`)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(HISTORY_LIMIT + 1)
+        .abortSignal(controller.signal);
+      if (controller.signal.aborted) return;
+      if (requestError) throw new Error("history_load");
+      setByChild((current) => ({
+        ...current,
+        [selectedId]: mergeEvents(current[selectedId] ?? [], data.slice(0, HISTORY_LIMIT)),
+      }));
+      setOlderByChild((current) => ({ ...current, [selectedId]: data.length > HISTORY_LIMIT }));
+    } catch {
+      if (!controller.signal.aborted) setError(dataError());
+    } finally {
+      if (historyRequest.current === controller) {
+        historyRequest.current = null;
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      }
+    }
+  }
 
   const addChild = useCallback(
     async (nome: string) => {
@@ -171,58 +223,85 @@ export function useWorkspace(
     [preview, enabled, user?.id],
   );
 
-  const record = useCallback(
-    (pictogram: Pictogram) => {
+  const recordEvent = useCallback(
+    (details: EventDetails) => {
       if (!enabled || !selectedId) return;
-      const id = crypto.randomUUID();
-      if (preview) {
-        const event: Comunicacao = {
-          id,
-          usuario_id: "demo",
-          crianca_id: selectedId,
-          pictograma_id: pictogram.id,
-          rotulo: pictogram.label,
-          categoria: pictogram.category,
-          created_at: new Date().toISOString(),
-        };
+      const event = {
+        ...details,
+        id: crypto.randomUUID(),
+        usuario_id: preview ? "demo" : user?.id ?? "",
+        crianca_id: selectedId,
+      };
+      const append = (stored: Comunicacao) =>
         setByChild((current) => ({
           ...current,
-          [selectedId]: mergeEvents(current[selectedId] ?? [], [event]),
+          [selectedId]: mergeEvents(current[selectedId] ?? [], [stored]),
         }));
+      if (preview) {
+        append({ ...event, created_at: new Date().toISOString() });
         return;
       }
       if (!supabase || !user) return;
       setPendingWrites((count) => count + 1);
       void Promise.resolve(
-        supabase
-          .from("comunicacoes")
-          .insert({
-            id,
-            usuario_id: user.id,
-            crianca_id: selectedId,
-            pictograma_id: pictogram.id,
-            rotulo: pictogram.label,
-            categoria: pictogram.category,
-          })
-          .select("*")
-          .single(),
+        supabase.from("comunicacoes").insert(event).select("*").single(),
       )
         .then(({ data, error: requestError }) => {
           if (requestError) throw new Error("record_save");
-          setByChild((current) => ({
-            ...current,
-            [selectedId]: mergeEvents(current[selectedId] ?? [], [data]),
-          }));
+          append(data);
         })
         .catch(() =>
-          setSaveError(
-            "O áudio foi acionado, mas não foi possível confirmar o registro deste toque. Verifique sua conexão antes de continuar.",
-          ),
+          setSaveError("Não foi possível confirmar o registro desta atividade. Confira sua conexão."),
         )
         .finally(() => setPendingWrites((count) => count - 1));
     },
     [selectedId, enabled, preview, user?.id],
   );
+
+  const record = useCallback((pictogram: Pictogram) => {
+    recordEvent({
+      event_type: "symbol_selection",
+      symbol_source: pictogram.source === "custom" ? "custom" : "catalog",
+      arasaac_id: pictogram.imagePath ? null : pictogram.arasaacId ?? null,
+      pictograma_id: pictogram.id,
+      rotulo: pictogram.label,
+      categoria: pictogram.category,
+    });
+  }, [recordEvent]);
+
+  const recordMessage = useCallback((text: string) => {
+    recordEvent({
+      event_type: "message_playback",
+      symbol_source: null,
+      arasaac_id: null,
+      pictograma_id: null,
+      rotulo: text,
+      categoria: null,
+    });
+  }, [recordEvent]);
+
+  const deleteHistory = useCallback(async (before: string | null) => {
+    if (!enabled || preview || !selectedId || !supabase || !user) {
+      throw new Error("Este perfil não permite excluir o histórico.");
+    }
+    const scoped = supabase.from("comunicacoes").delete()
+      .eq("usuario_id", user.id).eq("crianca_id", selectedId);
+    const { error: requestError } = await (before ? scoped.lt("created_at", before) : scoped);
+    if (requestError) throw new Error("Não foi possível excluir os registros. Tente novamente.");
+
+    historyRequest.current?.abort();
+    setByChild((current) => ({
+      ...current,
+      [selectedId]: (current[selectedId] ?? []).filter((event) =>
+        before !== null && Date.parse(event.created_at) >= Date.parse(before)),
+    }));
+    setOlderByChild((current) => {
+      const remaining = { ...current };
+      delete remaining[selectedId];
+      return remaining;
+    });
+    setHistoryVersion((current) => current + 1);
+  }, [enabled, preview, selectedId, user?.id]);
 
   const selectedChild = useMemo(
     () => children.find((child) => child.id === selectedId) ?? null,
@@ -234,7 +313,9 @@ export function useWorkspace(
     selectedChild,
     selectedId,
     setSelectedId,
-    events: byChild[selectedId] ?? [],
+    events,
+    hasOlder,
+    loadOlder,
     loading,
     historyLoading,
     error,
@@ -242,6 +323,8 @@ export function useWorkspace(
     pendingWrites,
     addChild,
     record,
+    recordMessage,
+    deleteHistory,
     reload: () => setReloadVersion((value) => value + 1),
     dismissSaveError: () => setSaveError(null),
   };

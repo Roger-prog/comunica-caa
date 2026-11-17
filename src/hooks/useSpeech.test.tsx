@@ -31,6 +31,7 @@ class MockUtterance {
   voice: SpeechSynthesisVoice | null = null;
   rate = 1;
   volume = 1;
+  onstart: (() => void) | null = null;
   onend: (() => void) | null = null;
   onerror: ((event: { error: string }) => void) | null = null;
   constructor(text: string) {
@@ -117,22 +118,80 @@ describe("useSpeech", () => {
   it("plays private text with a local Brazilian voice and refuses a cloud-only voice", () => {
     const { result } = renderHook(() => useSpeech());
     const privateText = "Minha mensagem pessoal";
-    act(() => result.current.speak(privateText, { deviceOnly: true }));
+    act(() => result.current.speak(privateText, { offlineOnly: true }));
     expect(synthesis.speak.mock.calls[0][0]).toMatchObject({ text: privateText, voice: brazilianVoice });
     expect(neuralEngine.speak).not.toHaveBeenCalled();
     synthesis.speak.mockClear();
     synthesis.getVoices.mockReturnValue([{ ...brazilianVoice, localService: false }]);
-    act(() => result.current.speak(privateText, { deviceOnly: true }));
+    act(() => result.current.speak(privateText, { offlineOnly: true }));
     expect(synthesis.speak).not.toHaveBeenCalled();
     expect(neuralEngine.speak).not.toHaveBeenCalled();
     expect(result.current.error).toContain("voz local em português do Brasil");
   });
 
-  it("uses a Portuguese language hint when no voices have loaded", () => {
+  it("uses the selected local Brazilian voice uniformly and reports only a real start", () => {
+    const { result } = renderHook(() => useSpeech());
+    const texts = ["Água", "Uma palavra personalizada", "Preciso de ajuda.", "Eu quero água"];
+    const onStart = vi.fn();
+    for (const text of texts) {
+      act(() => result.current.speak(text, { voiceURI: "local-pt-BR", rate: 0.8, offlineOnly: true, onStart }));
+      const utterance = synthesis.speak.mock.lastCall?.[0] as MockUtterance;
+      expect(utterance).toMatchObject({ text, voice: brazilianVoice, rate: 0.8, lang: "pt-BR" });
+      expect(onStart).not.toHaveBeenCalled();
+      act(() => { utterance.onstart?.(); utterance.onstart?.(); });
+      expect(onStart).toHaveBeenCalledOnce();
+      onStart.mockClear();
+    }
+    expect(neuralEngine.speak).not.toHaveBeenCalled();
+  });
+
+  it("reports a Brazilian device fallback when a configured neural recording is unavailable offline", () => {
+    const { result } = renderHook(() => useSpeech());
+    act(() => result.current.speak("Palavra privada", {
+      offlineOnly: true, voiceURI: "pt-BR-AntonioNeural", rate: 1.2,
+    }));
+    expect(synthesis.speak.mock.lastCall?.[0]).toMatchObject({ voice: brazilianVoice, rate: 1.2 });
+    expect(result.current.notice).toContain("Antônio");
+    expect(result.current.notice).toContain(brazilianVoice.name);
+    expect(neuralEngine.speak).not.toHaveBeenCalled();
+  });
+
+  it("keeps a playable neural recording on the selected voice even when the device has another voice", () => {
+    const engine = { ...neuralEngine, canPlayOffline: vi.fn(() => true) };
+    const { result } = renderHook(() => useSpeech(engine));
+    const options = { offlineOnly: true, voiceURI: "pt-BR-AntonioNeural", rate: 0.9 };
+    for (const text of ["Água", "Preciso de ajuda.", "Eu Água"]) {
+      act(() => result.current.speak(text, options));
+      expect(engine.speak).toHaveBeenLastCalledWith(text, options, expect.any(Object));
+    }
+    expect(synthesis.speak).not.toHaveBeenCalled();
+    expect(result.current.notice).toBeNull();
+  });
+
+  it("uses a bundled Portuguese recording if the selected device voice is temporarily unavailable", () => {
+    synthesis.getVoices.mockReturnValue([englishVoice]);
+    const engine = { ...neuralEngine, canPlayOffline: vi.fn((text) => text === "Água") };
+    const { result } = renderHook(() => useSpeech(engine));
+    act(() => result.current.speak("Água", { voiceURI: "local-pt-BR", rate: 0.8, offlineOnly: true }));
+    expect(engine.speak).toHaveBeenCalledExactlyOnceWith("Água", {
+      voiceURI: undefined, rate: 0.8, offlineOnly: true,
+    }, expect.any(Object));
+    expect(synthesis.speak).not.toHaveBeenCalled();
+    expect(result.current.notice).toContain("A voz local em português do Brasil está indisponível");
+    act(() => result.current.speak("Texto privado", { voiceURI: "local-pt-BR", offlineOnly: true }));
+    expect(engine.speak).toHaveBeenCalledOnce();
+    expect(result.current.error).toContain("habilite uma voz local");
+  });
+
+  it("waits for a local Brazilian voice instead of using the browser default", () => {
     synthesis.getVoices.mockReturnValue([]);
     const { result } = renderNativeSpeech();
     act(() => result.current.speak("Olá"));
-    expect(synthesis.speak.mock.calls[0][0].lang).toBe("pt-BR");
+    expect(synthesis.speak).not.toHaveBeenCalled();
+    synthesis.getVoices.mockReturnValue([englishVoice, brazilianVoice]);
+    act(() => synthesis.dispatchEvent(new Event("voiceschanged")));
+    act(() => result.current.speak("Olá"));
+    expect(synthesis.speak.mock.lastCall?.[0]).toMatchObject({ lang: "pt-BR", voice: brazilianVoice });
   });
 
   it("ignores an interrupted previous utterance and releases native speech on cleanup", () => {

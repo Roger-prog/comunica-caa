@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState } from "react";
-import { usePatientBoard } from "../lib/patientBoard";
+import { lazy, Suspense } from "react";
+import type { usePatientBoard } from "../lib/patientBoard";
 
 const BoardManager = lazy(() => import("./BoardManager").then((module) => ({
   default: module.BoardManager,
@@ -28,13 +28,16 @@ export function PatientBoardPanel({
   );
 }
 
-export function LinkedPatientBoardPanel(props: Identity) {
-  const [open, setOpen] = useState(false);
-  const state = usePatientBoard(props.patientId, props.userId, open);
+export function LinkedPatientBoardPanel({ open, onToggle, state, ...props }: Identity & {
+  open: boolean;
+  onToggle: (open: boolean) => void;
+  state: ReturnType<typeof usePatientBoard>;
+}) {
   return (
     <details
       className="surface p-5"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      open={open}
+      onToggle={(event) => onToggle(event.currentTarget.open)}
     >
       <summary className="flex min-h-12 cursor-pointer items-center font-semibold text-brand-700">
         Personalizar prancha de {props.patientName}

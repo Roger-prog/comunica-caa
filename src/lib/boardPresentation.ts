@@ -2,7 +2,7 @@ import { CATALOG_PICTOGRAMS, getCategoryLabel, type Pictogram } from "../data/pi
 import { getArasaacImageUrl } from "./arasaac";
 import type { PatientBoard } from "./patientBoard";
 
-export function applyPatientBoard(board: PatientBoard | null): readonly Pictogram[] {
+export function applyPatientBoard(board: PatientBoard | null, includeHidden = false): readonly Pictogram[] {
   if (!board) return CATALOG_PICTOGRAMS;
   const overrides = new Map(board.overrides.map((item) => [item.symbol_id, item.arasaac_id]));
   const base = CATALOG_PICTOGRAMS.map((item) => {
@@ -10,7 +10,7 @@ export function applyPatientBoard(board: PatientBoard | null): readonly Pictogra
     return id ? { ...item, arasaacId: id, imageUrl: getArasaacImageUrl(id), source: "arasaac" as const }
       : item;
   });
-  const custom: Pictogram[] = board.symbols.filter((item) => !item.hidden).map((item) => {
+  const custom: Pictogram[] = board.symbols.filter((item) => includeHidden || !item.hidden).map((item) => {
     const categories = item.categories.map(getCategoryLabel);
     return {
       id: item.id,

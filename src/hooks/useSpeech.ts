@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createWebSpeechEngine,
+  LOCAL_SPEECH_VOICE,
   type SpeechEngine,
   type SpeechFailure,
   type SpeechOptions,
@@ -10,7 +11,9 @@ import { createEdgeSpeechEngine } from "../lib/edgeSpeechEngine";
 
 export type { SpeechOptions } from "../lib/speechEngine";
 
-/** Coordinates UI state; the default engine fetches MP3 and plays a local Blob URL. */
+type PlaybackOptions = SpeechOptions & { onStart?: () => void };
+
+/** Coordinates neural recordings and local Brazilian Portuguese speech. */
 export function useSpeech(engine?: SpeechEngine) {
   const [defaultEngine] = useState(() =>
     createEdgeSpeechEngine(
@@ -18,11 +21,12 @@ export function useSpeech(engine?: SpeechEngine) {
     ),
   );
   const selectedEngine = engine ?? defaultEngine;
-  const [deviceEngine] = useState(() => createWebSpeechEngine(true));
-  const supported = selectedEngine.supported;
+  const [deviceEngine] = useState(createWebSpeechEngine);
+  const supported = selectedEngine.supported || (selectedEngine === defaultEngine && deviceEngine.supported);
   const [voices, setVoices] = useState<SpeechVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false);
   const generation = useRef(0);
   const deviceInUse = useRef(false);
@@ -31,6 +35,7 @@ export function useSpeech(engine?: SpeechEngine) {
   useEffect(() => {
     setSpeaking(false);
     setError(null);
+    setNotice(null);
     setNeedsPlaybackGesture(false);
     const loadVoices = () => setVoices(selectedEngine.getVoices());
     loadVoices();
@@ -51,7 +56,7 @@ export function useSpeech(engine?: SpeechEngine) {
 
   const prefetch = useCallback(
     (texts: readonly string[], options: SpeechOptions = {}): (() => void) => {
-      if (!supported || !selectedEngine.prefetch) return () => {};
+      if (!supported || options.voiceURI === LOCAL_SPEECH_VOICE || !selectedEngine.prefetch) return () => {};
       try {
         // The engine belongs to this hook instance: downloaded Blobs stay in RAM
         // and are reused by speak(), without React renders or persistent storage.
@@ -75,7 +80,7 @@ export function useSpeech(engine?: SpeechEngine) {
 
   const prepareSentence = useCallback(
     (texts: readonly string[], options: SpeechOptions = {}): (() => void) => {
-      if (!texts.length || !supported || !selectedEngine.prepareSentence)
+      if (!texts.length || !supported || options.voiceURI === LOCAL_SPEECH_VOICE || !selectedEngine.prepareSentence)
         return () => {};
       try {
         const release = selectedEngine.prepareSentence(texts, options);
@@ -104,23 +109,31 @@ export function useSpeech(engine?: SpeechEngine) {
     setSpeaking(false);
     setNeedsPlaybackGesture(false);
     setError(null);
+    setNotice(null);
   }, [deviceEngine, selectedEngine]);
 
   const speak = useCallback(
-    (text: string, options: SpeechOptions = {}) => {
+    (text: string, { onStart, ...options }: PlaybackOptions = {}) => {
       const message = text.trim();
       if (!message) return;
-      const useDevice = options.deviceOnly ||
-        (options.preferDevice && deviceEngine.getVoices().length > 0);
-      if (options.deviceOnly && !deviceEngine.getVoices().length) {
-        stop();
-        setError("Para ouvir esta mensagem, habilite uma voz local em português do Brasil no seu dispositivo.");
-        return;
-      }
-      if (!supported && !useDevice) {
+      if (!supported) {
         setError(
           "A leitura em voz alta não está disponível neste navegador. O texto continua visível na prancha.",
         );
+        return;
+      }
+
+      const localPreferred = options.voiceURI === LOCAL_SPEECH_VOICE;
+      const wantsDevice = localPreferred || Boolean(options.offlineOnly &&
+        !selectedEngine.canPlayOffline?.(message, options));
+      const localVoice = wantsDevice ? deviceEngine.getVoices()[0] : undefined;
+      const useDevice = Boolean(localVoice);
+      const bundledFallback = localPreferred && !useDevice
+        ? { ...options, voiceURI: undefined, offlineOnly: true } : null;
+      if (wantsDevice && !useDevice &&
+          !(bundledFallback && selectedEngine.canPlayOffline?.(message, bundledFallback))) {
+        stop();
+        setError("Para ouvir esta mensagem, habilite uma voz local em português do Brasil no seu dispositivo e toque novamente.");
         return;
       }
 
@@ -128,10 +141,26 @@ export function useSpeech(engine?: SpeechEngine) {
       // Invalidate previous callbacks before cancel(), which can emit an error event.
       selectedEngine.cancel();
       if (deviceInUse.current) deviceEngine.cancel();
-      deviceInUse.current = Boolean(useDevice);
+      deviceInUse.current = useDevice;
       setError(null);
       setNeedsPlaybackGesture(false);
+      const voices = selectedEngine.getVoices();
+      const chosenName = (options.voiceURI ? voices.find((voice) => voice.voiceURI === options.voiceURI) : voices[0])?.name;
+      if (bundledFallback) {
+        setNotice("A voz local em português do Brasil está indisponível. Usando a gravação de " +
+          (voices[0]?.name ?? "português do Brasil") + ".");
+      } else {
+        setNotice(localVoice && !localPreferred
+          ? `A voz ${chosenName ?? "configurada"} está indisponível para este texto. Usando a voz local ${localVoice.name} (português do Brasil).`
+          : null);
+      }
 
+      let started = false;
+      const onPlaybackStart = () => {
+        if (generation.current !== request || started) return;
+        started = true;
+        onStart?.();
+      };
       const onEnd = () => {
         if (generation.current !== request) return;
         setSpeaking(false);
@@ -147,7 +176,7 @@ export function useSpeech(engine?: SpeechEngine) {
         setError(
           reason === "not-allowed" && !useDevice
             ? "O áudio está pronto. Toque em Ouvir áudio pronto para reproduzir."
-            : useDevice || options.bundledOnly
+            : useDevice || options.offlineOnly
               ? "Não foi possível reproduzir o áudio neste dispositivo. Confira as configurações de som."
               : "Não foi possível gerar ou reproduzir a voz. Verifique a conexão e se o serviço de voz está disponível.",
         );
@@ -164,7 +193,10 @@ export function useSpeech(engine?: SpeechEngine) {
       try {
         // Start the request immediately; the engine plays the returned Blob
         // without a second download or a media-readiness event barrier.
-        const playback = (useDevice ? deviceEngine : selectedEngine).speak(message, options, {
+        const playback = (useDevice ? deviceEngine : selectedEngine).speak(message, localVoice
+          ? { ...options, voiceURI: localVoice.voiceURI }
+          : bundledFallback ?? options, {
+          onStart: onPlaybackStart,
           onEnd,
           onError,
         });
@@ -203,6 +235,7 @@ export function useSpeech(engine?: SpeechEngine) {
     voices,
     speaking,
     error,
+    notice,
     speak,
     stop,
     needsPlaybackGesture,

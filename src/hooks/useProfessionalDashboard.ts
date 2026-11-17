@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  recentActivityPeriod,
+  todayInSaoPaulo,
+  validateActivityPeriod as validateReportPeriod,
+  type ActivityPeriod as ReportPeriod,
+} from "../lib/activityEvents";
 import type { Comunicacao, Crianca } from "../lib/database.types";
 import {
   fetchPatientEvents,
@@ -7,54 +13,7 @@ import {
   redeemInvitation,
 } from "../lib/professional";
 
-export type ReportPeriod = { from: string; to: string };
-
-export function todayInSaoPaulo(now = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const value = (type: string) =>
-    parts.find((part) => part.type === type)?.value;
-  return `${value("year")}-${value("month")}-${value("day")}`;
-}
-
-function initialPeriod(): ReportPeriod {
-  const to = todayInSaoPaulo();
-  const start = new Date(`${to}T12:00:00Z`);
-  start.setUTCDate(start.getUTCDate() - 29);
-  return { from: start.toISOString().slice(0, 10), to };
-}
-
-function dateValue(value: string): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  if (
-    !Number.isFinite(date.getTime()) ||
-    date.toISOString().slice(0, 10) !== value
-  )
-    return null;
-  return date.getTime();
-}
-
-export function validateReportPeriod(
-  period: ReportPeriod,
-  today = todayInSaoPaulo(),
-): string | null {
-  const from = dateValue(period.from);
-  const to = dateValue(period.to);
-  if (from === null || to === null)
-    return "Informe as datas inicial e final do período.";
-  if (period.from < "2020-01-01" || period.to > today)
-    return "Escolha datas entre 01/01/2020 e hoje.";
-  if (from > to)
-    return "A data inicial deve ser anterior ou igual à data final.";
-  if ((to - from) / 86_400_000 + 1 > 366)
-    return "Escolha um período de até 366 dias.";
-  return null;
-}
+export { todayInSaoPaulo, validateReportPeriod, type ReportPeriod };
 
 const demoPatients: Crianca[] = [
   {
@@ -84,6 +43,9 @@ function demoEvents(patientId: string, period: ReportPeriod): Comunicacao[] {
       pictograma_id: "agua",
       rotulo: "Água",
       categoria: "Necessidades",
+      event_type: "symbol_selection",
+      symbol_source: "catalog",
+      arasaac_id: null,
       created_at: `${day}T14:30:00-03:00`,
     },
     {
@@ -93,6 +55,9 @@ function demoEvents(patientId: string, period: ReportPeriod): Comunicacao[] {
       pictograma_id: "mais",
       rotulo: "Mais",
       categoria: "Conversar",
+      event_type: "symbol_selection",
+      symbol_source: "catalog",
+      arasaac_id: null,
       created_at: `${day}T10:15:00-03:00`,
     },
   ];
@@ -112,7 +77,7 @@ export function useProfessionalDashboard(
   const owner = preview ? "preview" : `user:${userId ?? "none"}`;
   const currentOwner = useRef(owner);
   currentOwner.current = owner;
-  const [period, setPeriod] = useState<ReportPeriod>(initialPeriod);
+  const [period, setPeriod] = useState<ReportPeriod>(() => recentActivityPeriod(30));
   const [selectedId, setSelectedId] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
   const [patientsState, setPatientsState] = useState<{

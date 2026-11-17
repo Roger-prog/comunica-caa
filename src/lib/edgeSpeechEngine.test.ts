@@ -42,6 +42,7 @@ class MockAudio {
 
 function callbacks() {
   return {
+    onStart: vi.fn(),
     onEnd: vi.fn<SpeechCallbacks["onEnd"]>(),
     onError: vi.fn<SpeechCallbacks["onError"]>(),
   };
@@ -190,7 +191,7 @@ describe("edgeSpeechEngine", () => {
     const voice = engine(undefined, phraseVocabulary(clip), phrases);
     const events = callbacks();
     const segments = ["Mais", ...Array<string>(12).fill("Água")];
-    await voice.speak(segments.join(" "), { segments, bundledOnly: true }, events);
+    await voice.speak(segments.join(" "), { segments, offlineOnly: true }, events);
     expect(audios).toHaveLength(1);
     expect(audios[0].play).toHaveBeenCalledOnce();
     audios[0].onended?.();
@@ -730,15 +731,43 @@ describe("edgeSpeechEngine", () => {
     const audio = audios[0];
     const url = audio.src;
     expect(events.onError).toHaveBeenCalledExactlyOnceWith("not-allowed");
+    expect(events.onStart).not.toHaveBeenCalled();
     expect(revokeUrl).not.toHaveBeenCalled();
     const replay = voice.retryPlayback?.();
     expect(audio.play).toHaveBeenCalledTimes(2); // Happens before awaiting the promise.
     await replay;
+    expect(events.onStart).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(audio.src).toBe(url);
     audio.onended?.();
     expect(events.onEnd).toHaveBeenCalledOnce();
     expect(revokeUrl).toHaveBeenCalledExactlyOnceWith(url);
+  });
+
+  it("keeps offline requests local even when neither a clip nor a local phrase exists", async () => {
+    const voice = engine();
+    const events = callbacks();
+    const options = { voiceURI: "pt-BR-AntonioNeural", offlineOnly: true };
+    expect(voice.canPlayOffline?.("Mensagem pessoal", options)).toBe(false);
+    voice.prefetch?.(["Mensagem pessoal"], options);
+    await voice.speak("Mensagem pessoal", options, events);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(events.onStart).not.toHaveBeenCalled();
+    expect(events.onError).toHaveBeenCalledExactlyOnceWith("failed");
+  });
+
+  it("ignores a late playback start after the message was canceled", async () => {
+    let startPlayback!: () => void;
+    playBehavior = () => new Promise<void>((resolve) => { startPlayback = resolve; });
+    const clip = new Blob([new Uint8Array(8)], { type: "audio/mpeg" });
+    const voice = engine(undefined, () => clip);
+    const events = callbacks();
+    const playback = voice.speak("Água", { offlineOnly: true }, events);
+    expect(events.onStart).not.toHaveBeenCalled();
+    voice.cancel();
+    startPlayback();
+    await playback;
+    expect(events.onStart).not.toHaveBeenCalled();
   });
 
   it("cleans a blocked MP3 on cancellation", async () => {

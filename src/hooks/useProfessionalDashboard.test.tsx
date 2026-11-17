@@ -42,6 +42,9 @@ function event(patientId = "patient-a", label = "Água"): Comunicacao {
     pictograma_id: "agua",
     rotulo: label,
     categoria: "Necessidades",
+    event_type: "symbol_selection",
+    symbol_source: "catalog",
+    arasaac_id: null,
     created_at: `${todayInSaoPaulo()}T12:00:00-03:00`,
   };
 }

@@ -189,7 +189,7 @@ describe("App: jornadas de autenticação simulada", () => {
       screen.queryByRole("button", { name: "Entrar" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Cada expressão tem um começo" }),
+      screen.getByRole("heading", { name: "Nenhum registro de comunicação" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "Registros de comunicação" }),

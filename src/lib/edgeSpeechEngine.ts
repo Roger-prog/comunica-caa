@@ -37,6 +37,7 @@ interface Playback {
   audio: HTMLAudioElement | null;
   objectUrl: string | null;
   closed: boolean;
+  started: boolean;
 }
 
 interface AudioRequest {
@@ -135,7 +136,7 @@ export function createEdgeSpeechEngine(
 
   function requestFor(text: string, options: SpeechOptions): AudioRequest | null {
     const message = text.trim();
-    if (!message || Array.from(message).length > (options.bundledOnly ? 12_000 : MAX_TEXT_LENGTH)) return null;
+    if (!message || Array.from(message).length > (options.offlineOnly ? 12_000 : MAX_TEXT_LENGTH)) return null;
     const voice = VOICES.some((item) => item.voiceURI === options.voiceURI)
       ? options.voiceURI!
       : VOICES[0].voiceURI;
@@ -308,7 +309,7 @@ export function createEdgeSpeechEngine(
     const owner = Symbol();
     for (const text of texts.slice(0, CACHE_MAX_ENTRIES)) {
       const request = requestFor(text, options);
-      if (!request || bundled(request) || cached(request.key)) continue;
+      if (!request || bundled(request) || options.offlineOnly || cached(request.key)) continue;
       if (activeBackground?.request.key === request.key) {
         activeBackground.owners.add(owner);
         continue;
@@ -381,7 +382,11 @@ export function createEdgeSpeechEngine(
     try {
       // Keep play() synchronous with retryPlayback's user gesture on mobile Safari.
       const result = playback.audio.play();
-      return Promise.resolve(result).catch((cause: unknown) => {
+      return Promise.resolve(result).then(() => {
+        if (!isCurrent(playback) || playback.started) return;
+        playback.started = true;
+        playback.callbacks.onStart?.();
+      }, (cause: unknown) => {
         const name =
           cause && typeof cause === "object" && "name" in cause
             ? cause.name
@@ -449,6 +454,11 @@ export function createEdgeSpeechEngine(
     supported,
     getVoices: () => VOICES.map((voice) => ({ ...voice })),
     subscribeVoices: () => () => {},
+    canPlayOffline(text, options) {
+      const request = requestFor(text, options);
+      return Boolean(supported && request && (bundled(request) ||
+        (options.segments && phraseClips(options.segments, request))));
+    },
     cancel,
     prefetch,
     prepareSentence,
@@ -491,6 +501,7 @@ export function createEdgeSpeechEngine(
         audio: null,
         objectUrl: null,
         closed: false,
+        started: false,
       };
       current = playback;
       try {
@@ -508,7 +519,7 @@ export function createEdgeSpeechEngine(
         }
         const clips = options.segments && phraseClips(options.segments, request);
         if (clips) return playClips(playback, clips, volume, request.rate);
-        if (options.bundledOnly) {
+        if (options.offlineOnly) {
           fail(playback, "failed");
           return;
         }

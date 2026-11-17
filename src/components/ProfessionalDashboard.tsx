@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ClipboardList,
   Download,
@@ -11,15 +11,14 @@ import {
   todayInSaoPaulo,
   useProfessionalDashboard,
 } from "../hooks/useProfessionalDashboard";
+import { activityDateTime, eventTypeLabel, summarizeActivity } from "../lib/activityEvents";
+import { applyPatientBoard } from "../lib/boardPresentation";
+import { usePatientBoard } from "../lib/patientBoard";
 import { downloadPatientReport } from "../lib/patientReport";
 import { ProfessionalError } from "../lib/professional";
+import { ActivitySymbol } from "./ActivitySymbol";
 import { LinkedPatientBoardPanel } from "./PatientBoardPanel";
 
-const dateTime = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: "America/Sao_Paulo",
-  dateStyle: "short",
-  timeStyle: "short",
-});
 const PAGE_SIZE = 20;
 
 export function ProfessionalDashboard({
@@ -32,6 +31,7 @@ export function ProfessionalDashboard({
   const dashboard = useProfessionalDashboard(userId, preview);
   const [code, setCode] = useState("");
   const [page, setPage] = useState(0);
+  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
   const [exportState, setExportState] = useState<{
     key: string;
     pending: boolean;
@@ -60,6 +60,16 @@ export function ProfessionalDashboard({
     visiblePage * PAGE_SIZE,
     (visiblePage + 1) * PAGE_SIZE,
   );
+  const summary = useMemo(() => summarizeActivity(dashboard.events), [dashboard.events]);
+  const authorizedBoardId = !preview && dashboard.selectedPatient?.board_access
+    ? dashboard.selectedPatient.id : null;
+  const editorOpen = authorizedBoardId !== null && editingBoardId === authorizedBoardId;
+  const hasCurrentCustomImages = rows.some((event) => event.symbol_source === "custom" && !event.arasaac_id);
+  const boardState = usePatientBoard(authorizedBoardId, userId, editorOpen || hasCurrentCustomImages);
+  const historyBoard = boardState.status === "ready" ? boardState.board : null;
+  const historyCatalog = useMemo(() => historyBoard
+    ? new Map(applyPatientBoard(historyBoard, true).map((item) => [item.id, item]))
+    : undefined, [historyBoard]);
 
   useEffect(() => {
     setPage(0);
@@ -294,6 +304,9 @@ export function ProfessionalDashboard({
                   patientId={dashboard.selectedPatient.id}
                   patientName={dashboard.selectedPatient.nome}
                   userId={userId}
+                  open={editorOpen}
+                  onToggle={(open) => setEditingBoardId(open ? authorizedBoardId : null)}
+                  state={boardState}
                 />
               ) : (
                 <p className="surface p-4 text-sm text-stone-700">
@@ -423,23 +436,12 @@ export function ProfessionalDashboard({
               ) : (
                 !dashboard.periodError && (
                   <>
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {[
-                        ["Comunicações", dashboard.events.length],
-                        [
-                          "Símbolos diferentes",
-                          new Set(
-                            dashboard.events.map(
-                              (event) => event.pictograma_id,
-                            ),
-                          ).size,
-                        ],
-                        [
-                          "Categorias",
-                          new Set(
-                            dashboard.events.map((event) => event.categoria),
-                          ).size,
-                        ],
+                        ["Seleções de símbolos", summary.selections],
+                        ["Mensagens reproduzidas", summary.messages],
+                        ["Símbolos diferentes utilizados", summary.symbols],
+                        ["Categorias utilizadas", summary.categories],
                       ].map(([label, value]) => (
                         <div key={label} className="surface p-5">
                           <p className="text-2xl font-semibold">{value}</p>
@@ -447,6 +449,9 @@ export function ProfessionalDashboard({
                         </div>
                       ))}
                     </div>
+                    {summary.legacy > 0 && (
+                      <p className="text-xs text-stone-600">Registros anteriores sem tipo confirmado aparecem na lista e no PDF.</p>
+                    )}
                     <div className="surface overflow-hidden">
                       {!dashboard.events.length ? (
                         <p className="p-6 text-sm text-stone-600">
@@ -471,7 +476,7 @@ export function ProfessionalDashboard({
                                     scope="col"
                                     className="px-5 py-3 font-semibold"
                                   >
-                                    Símbolo
+                                    Símbolo ou mensagem
                                   </th>
                                   <th
                                     scope="col"
@@ -486,16 +491,24 @@ export function ProfessionalDashboard({
                                   <tr key={event.id}>
                                     <td className="px-5 py-4 whitespace-nowrap">
                                       <time dateTime={event.created_at}>
-                                        {dateTime.format(
+                                        {activityDateTime.format(
                                           new Date(event.created_at),
                                         )}
                                       </time>
                                     </td>
                                     <td className="max-w-64 px-5 py-4 font-medium break-words">
-                                      {event.rotulo}
+                                      <div className="flex items-start gap-2">
+                                        <ActivitySymbol event={event} catalog={historyCatalog} />
+                                        <div className="min-w-0">
+                                          <p className="break-words">{event.rotulo}</p>
+                                          <p className="mt-1 text-xs font-normal text-stone-600">
+                                            {eventTypeLabel(event)}{event.symbol_source === "custom" ? " · Personalizado" : ""}
+                                          </p>
+                                        </div>
+                                      </div>
                                     </td>
                                     <td className="max-w-48 px-5 py-4 break-words">
-                                      {event.categoria}
+                                      {event.categoria ?? "—"}
                                     </td>
                                   </tr>
                                 ))}

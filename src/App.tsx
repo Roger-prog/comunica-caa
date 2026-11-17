@@ -47,8 +47,10 @@ import { useWorkspace } from "./hooks/useWorkspace";
 import { useChildMode } from "./hooks/useChildMode";
 import { PatientInvitation } from "./components/PatientInvitation";
 import { PatientBoardPanel } from "./components/PatientBoardPanel";
+import { HistoryControls } from "./components/HistoryControls";
 import { applyPatientBoard } from "./lib/boardPresentation";
-import { DEFAULT_BOARD_SETTINGS, usePatientBoard } from "./lib/patientBoard";
+import { usePatientBoard } from "./lib/patientBoard";
+import { LOCAL_SPEECH_VOICE } from "./lib/speechEngine";
 
 const ProfessionalDashboard = lazy(() =>
   import("./components/ProfessionalDashboard").then((module) => ({
@@ -66,6 +68,7 @@ const viewPaths: Record<View, string> = {
 };
 type Preferences = { voiceURI: string; rate: number; largeCards: boolean };
 type ChildModeState = ReturnType<typeof useChildMode>;
+const ignoreEvent = () => {};
 const navigation = [
   {
     id: "board" as const,
@@ -306,9 +309,12 @@ function Workspace({
   const patientId = canManageChildren && !preview ? workspace.selectedChild?.id : undefined;
   const patientBoard = usePatientBoard(patientId, session?.user.id, Boolean(patientId));
   const boardCatalog = useMemo(() => applyPatientBoard(patientBoard.board), [patientBoard.board]);
-  const savedSettings = patientId
-    ? patientBoard.board?.settings ?? DEFAULT_BOARD_SETTINGS
-    : undefined;
+  const historyCatalog = useMemo(() => view === "history"
+    ? applyPatientBoard(patientBoard.board, true) : undefined, [patientBoard.board, view]);
+  const savedSettings = patientBoard.board?.settings;
+  const recordHistory = !patientId || savedSettings?.historyRecording === true;
+  const initialBoardPending = (workspace.loading && !workspace.selectedId) ||
+    Boolean(patientId && !patientBoard.board);
   const boardVoice = savedSettings?.voiceURI ?? preferences.voiceURI;
   const boardRate = savedSettings?.rate ?? preferences.rate;
   const stopSpeech = speech.stop;
@@ -758,14 +764,17 @@ function Workspace({
                 <p role="status" className={view === "board" ? "sr-only" : "mb-4 text-xs text-stone-500"}>
                   Salvando{" "}
                   {workspace.pendingWrites === 1
-                    ? "comunicação"
-                    : "comunicações"}
+                    ? "atividade"
+                    : "atividades"}
                   …
                 </p>
               )}
             </>
           )}
-          {view === "board" && patientBoard.status === "error" && !isChildMode && (
+          {view === "board" && initialBoardPending && patientBoard.status !== "error" && (
+            <p role="status" className="surface p-4">Carregando as preferências da prancha…</p>
+          )}
+          {view === "board" && patientBoard.status === "error" && (
             <div className="surface mb-4 flex flex-wrap items-center gap-3 p-3">
               <p role="alert" className="text-sm text-red-800">
                 Não foi possível carregar os símbolos próprios e os ajustes deste perfil.
@@ -773,13 +782,19 @@ function Workspace({
               <button type="button" className="button-secondary" onClick={patientBoard.reload}>
                 Recarregar personalização
               </button>
+              {isChildMode && (
+                <button type="button" className="button-secondary" onClick={childMode.requestUnlock}>
+                  Sair do modo comunicação
+                </button>
+              )}
             </div>
           )}
-          {view === "board" && (
+          {view === "board" && !initialBoardPending && (
             <CommunicationBoard
               key={workspace.selectedId || "unassigned"}
               speech={speech}
-              onSelect={workspace.record}
+              onSelect={recordHistory ? workspace.record : ignoreEvent}
+              onPlayback={recordHistory ? workspace.recordMessage : ignoreEvent}
               catalog={boardCatalog}
               settings={savedSettings}
               voiceURI={boardVoice}
@@ -798,6 +813,8 @@ function Workspace({
             <Evolution
               key={workspace.selectedId}
               events={workspace.events}
+              patientId={!preview ? workspace.selectedId : undefined}
+              loading={workspace.historyLoading}
               onBoard={() => navigate("board")}
             />
           )}
@@ -806,6 +823,9 @@ function Workspace({
               key={workspace.selectedId}
               events={workspace.events}
               loading={workspace.historyLoading}
+              catalog={historyCatalog}
+              hasOlder={workspace.hasOlder}
+              loadOlder={workspace.loadOlder}
               onBoard={() => navigate("board")}
             />
           )}
@@ -827,7 +847,7 @@ function Workspace({
             <div className="max-w-3xl space-y-6">
               {canManageChildren && (
                 <PatientInvitation
-                  key={workspace.selectedId || "unassigned"}
+                  key={"invitation-" + workspace.selectedId}
                   child={workspace.selectedChild}
                   preview={preview}
                 />
@@ -840,6 +860,16 @@ function Workspace({
                   userId={session.user.id}
                   state={patientBoard}
                   canDeleteAny
+                />
+              )}
+              {patientId && patientBoard.board && (
+                <HistoryControls
+                  key={"history-" + patientId}
+                  patientId={patientId}
+                  board={patientBoard.board}
+                  disabled={patientBoard.status !== "ready" || workspace.pendingWrites > 0}
+                  onSettingsSaved={patientBoard.reload}
+                  onDelete={workspace.deleteHistory}
                 />
               )}
               {canManageChildren && !patientId && (
@@ -855,8 +885,7 @@ function Workspace({
                       Voz e leitura
                     </h2>
                     <p className="mb-6 text-sm leading-6 text-stone-500">
-                      Escolha uma voz neural em português do Brasil para a
-                      prancha.
+                      Escolha uma voz em português do Brasil para a prancha.
                     </p>
                     <label
                       htmlFor="voice"
@@ -876,6 +905,7 @@ function Workspace({
                       }
                     >
                       <option value="">Francisca · padrão</option>
+                      <option value={LOCAL_SPEECH_VOICE}>Voz local do dispositivo (pt-BR)</option>
                       {speech.voices.map((voice) => (
                         <option key={voice.voiceURI} value={voice.voiceURI}>
                           {voice.name} ({voice.lang})
@@ -908,15 +938,15 @@ function Workspace({
                       className="button-secondary mt-4"
                       disabled={!speech.supported}
                       onClick={() =>
-                        speech.speak(
-                          "Olá! Cada expressão importa.",
-                          preferences,
-                        )
+                        speech.speak("Olá", { ...preferences, offlineOnly: true })
                       }
                     >
                       <Volume2 size={18} aria-hidden="true" />
                       Testar voz
                     </button>
+                    {speech.notice && (
+                      <p role="status" className="mt-3 text-sm text-brand-800">{speech.notice}</p>
+                    )}
                     {speech.error && (
                       <p role="alert" className="mt-3 text-sm text-red-800">
                         {speech.error}
@@ -1009,8 +1039,8 @@ function Workspace({
               {canManageChildren && !patientId && (
                 <p className="text-xs leading-5 text-stone-500">
                   Preferências de voz e tamanho são salvas somente neste
-                  navegador. Os símbolos e as frases da prancha usam os áudios
-                  incluídos no site. Outros textos podem precisar de conexão.
+                  navegador. Dependendo da voz escolhida e do texto, a prancha
+                  usa os áudios incluídos ou uma voz local em português do Brasil.
                 </p>
               )}
             </div>

@@ -21,7 +21,8 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Preparação da frase durante a composição quando todos os símbolos têm áudio incluído.
 - Pausas curtas entre as palavras e reaproveitamento dos áudios já preparados.
 - Ajuste de velocidade com preservação do tom da voz.
-- Leitura de frases próprias pela voz local em português do Brasil quando disponível no dispositivo.
+- Voz local em português do Brasil para símbolos e frases, com aviso quando a leitura utiliza uma voz diferente da escolhida.
+- Reprodução dos áudios incluídos e síntese da voz local no dispositivo.
 
 ## Perfis e acompanhamento
 
@@ -31,9 +32,11 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 - Conclusão do perfil no primeiro acesso pelo Google.
 - Painéis e navegação de acordo com o tipo de conta.
 - Perfis individuais de crianças vinculados ao usuário.
-- Histórico por perfil para símbolos do vocabulário geral, com contagem das ocorrências na reprodução de frases.
-- Indicadores de utilização em períodos de 7 ou 30 dias.
-- Visualização da frequência de uso dos símbolos e das categorias.
+- Histórico por perfil, com pictogramas, pesquisa e filtros para seleções de símbolos e mensagens reproduzidas.
+- Registro de símbolos do catálogo e símbolos personalizados. Mensagens completas são registradas quando a leitura começa.
+- Controles para pausar novos registros e excluir o histórico inteiro ou registros anteriores ao período escolhido.
+- Indicadores de uso em períodos de 7 ou 30 dias ou em um período personalizado.
+- Gráfico diário de seleções e mensagens reproduzidas, com frequência por símbolo e categorias.
 
 ## Modo comunicação
 

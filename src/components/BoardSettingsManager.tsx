@@ -10,6 +10,7 @@ import {
 import { useSpeech } from "../hooks/useSpeech";
 import { applyPatientBoard } from "../lib/boardPresentation";
 import { saveBoardSettings } from "../lib/patientBoard";
+import { LOCAL_SPEECH_VOICE } from "../lib/speechEngine";
 import {
   MAX_QUICK_PHRASES,
   MAX_SENTENCE_SYMBOLS,
@@ -18,7 +19,7 @@ import {
   type BoardSettings,
   type PatientBoard,
 } from "../lib/patientBoardModel";
-import { PictogramPicture } from "./CommunicationBoard";
+import { PictogramPicture } from "./PictogramPicture";
 
 const sections = [
   { id: "appearance", label: "Aparência" },
@@ -124,6 +125,7 @@ function VoiceSettings({ draft, set }: { draft: BoardSettings; set: ChangeSettin
           <option value="">Francisca · padrão</option>
           <option value="pt-BR-FranciscaNeural">Francisca</option>
           <option value="pt-BR-AntonioNeural">Antônio</option>
+          <option value={LOCAL_SPEECH_VOICE}>Voz local do dispositivo (pt-BR)</option>
         </select>
       </Setting>
       <Setting title={"Velocidade da voz: " + draft.rate.toLocaleString("pt-BR") + "×"}>
@@ -131,14 +133,18 @@ function VoiceSettings({ draft, set }: { draft: BoardSettings; set: ChangeSettin
           value={draft.rate} onChange={(event) => set("rate", Number(event.target.value))} />
       </Setting>
     </div>
+    <p className="text-sm text-stone-600">
+      A voz local mantém a mesma voz para todas as falas neste dispositivo. Francisca e Antônio usam gravações do vocabulário incluído e recorrem à voz local para outros textos.
+    </p>
     <button type="button" className="button-secondary" disabled={!speech.supported} onClick={() => {
       if (speech.speaking) speech.stop();
-      else speech.speak("Olá", { voiceURI: draft.voiceURI, rate: draft.rate, bundledOnly: true });
+      else speech.speak("Olá", { voiceURI: draft.voiceURI, rate: draft.rate, offlineOnly: true });
     }}>
       <Volume2 size={18} aria-hidden="true" /> {speech.speaking ? "Parar prévia da voz" : "Ouvir prévia da voz"}
     </button>
     {speech.needsPlaybackGesture && <button type="button" className="button-secondary" onClick={speech.retryPlayback}>Reproduzir prévia</button>}
     {speech.error && <p role="alert" className="text-sm text-red-800">{speech.error}</p>}
+    {speech.notice && <p role="status" className="text-sm text-stone-700">{speech.notice}</p>}
     <label className="flex min-h-12 items-center gap-2 text-sm font-medium">
       <input type="checkbox" checked={draft.speakOnSelect} onChange={(event) => set("speakOnSelect", event.target.checked)} className="size-5 accent-brand-600" />
       Ouvir o símbolo ao adicioná-lo à frase

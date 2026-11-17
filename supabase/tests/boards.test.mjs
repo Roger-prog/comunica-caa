@@ -311,3 +311,193 @@ test('PostgreSQL: board, authorized photos and immediate link revocation', async
     assert.equal((await remove(OWNER, symbol.image_path)).rows[0].name, symbol.image_path);
   });
 });
+
+test('PostgreSQL: event upgrade, scoped history and retention', async (t) => {
+  const db = new PGlite();
+  t.after(() => db.close());
+  await fixture(db);
+  await db.query(`
+    insert into public.comunicacoes (usuario_id,crianca_id,pictograma_id,rotulo,categoria,created_at)
+    values ($1,$2,'agua','Água','Necessidades','2026-01-01 12:00:00Z')
+  `, [OWNER, CHILD]);
+
+  await db.exec(await readFile(new URL('../migrations/008_communication_events.sql', import.meta.url), 'utf8'));
+
+  const as = async (id, callback, operation = '') => {
+    await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('storage.operation',$2,false)",
+      [id ?? '', operation]);
+    await db.exec(id ? 'set role authenticated' : 'set role anon');
+    try {
+      return await callback();
+    } finally {
+      await db.exec('reset role');
+    }
+  };
+  const selectEvents = (id) => as(id, () => db.query(`
+    select id,event_type,symbol_source,arasaac_id,pictograma_id,rotulo,categoria
+    from public.caa_events where crianca_id = $1 order by created_at
+  `, [CHILD])).then(({ rows }) => rows);
+  const record = (accountId, {
+    ownerId = OWNER, childId = CHILD, type = 'symbol_selection',
+    source = 'catalog', symbolId = 'agua', text = 'Água',
+    category = 'Necessidades', imageId = 32408,
+  } = {}) => as(accountId, () => db.query(`
+    insert into public.comunicacoes
+      (usuario_id,crianca_id,event_type,symbol_source,pictograma_id,rotulo,categoria,arasaac_id)
+    values ($1,$2,$3,$4,$5,$6,$7,$8) returning id
+  `, [ownerId, childId, type, source, symbolId, text, category, imageId]));
+  const saveSymbol = (id, patient, label, arasaacId) => as(id, () => db.query(`
+    select symbol from public.save_caa_custom_symbol($1,null,$2,'Minha fala',
+      array['essencial'],$3,null,false,0)
+  `, [patient, label, arasaacId])).then(({ rows }) => rows[0].symbol);
+  const message = (text) => ({
+    type: 'message_playback', source: null, symbolId: null,
+    text, category: null, imageId: null,
+  });
+
+  await t.test('pre-upgrade records keep labels without inferring a selection or a playback', async () => {
+    const [event] = await selectEvents(OWNER);
+    assert.deepEqual(event, {
+      id: event.id, event_type: 'legacy_symbol', symbol_source: null, arasaac_id: null,
+      pictograma_id: 'agua', rotulo: 'Água', categoria: 'Necessidades',
+    });
+    assert.deepEqual(await selectEvents(PROFESSIONAL), [event]);
+    assert.deepEqual(await selectEvents(OTHER_OWNER), []);
+  });
+
+
+  await t.test('the earlier client can still write and query the original row projection', async () => {
+    const { rows: [row] } = await as(OWNER, () => db.query(`
+      insert into public.comunicacoes (crianca_id,pictograma_id,rotulo,categoria)
+      values ($1,'ajuda','Ajuda','Necessidades') returning id, event_type
+    `, [CHILD]));
+    assert.equal(row.event_type, 'legacy_symbol');
+    const { rows } = await as(PROFESSIONAL, () => db.query(`
+      select id,usuario_id,crianca_id,pictograma_id,rotulo,categoria,created_at
+      from public.caa_events where id = $1
+    `, [row.id]));
+    assert.equal(rows[0].rotulo, 'Ajuda');
+    await as(OWNER, () => db.query('delete from public.comunicacoes where id=$1', [row.id]));
+  });
+
+  await t.test('stores custom identity and message text separately without copying photographs', async () => {
+    const item = await saveSymbol(OWNER, CHILD, 'Símbolo criado', 12);
+    await record(OWNER);
+    const selection = await record(OWNER, {
+      source: 'custom', symbolId: item.id, text: item.label, imageId: item.arasaac_id,
+    });
+    const phrase = 'Quero repetir esta mensagem. '.repeat(400).trim();
+    const playback = await record(OWNER, message(phrase));
+    const events = await selectEvents(OWNER);
+    assert.equal(events.length, 4);
+    assert.equal(events.filter(({ event_type }) => event_type === 'symbol_selection').length, 2);
+    assert.deepEqual(events.find(({ pictograma_id }) => pictograma_id === item.id), {
+      id: selection.rows[0].id,
+      event_type: 'symbol_selection', symbol_source: 'custom', arasaac_id: 12,
+      pictograma_id: item.id, rotulo: item.label, categoria: 'Necessidades',
+    });
+    assert.deepEqual(events.find(({ id }) => id === playback.rows[0].id), {
+      id: playback.rows[0].id, event_type: 'message_playback', symbol_source: null,
+      arasaac_id: null, pictograma_id: null, rotulo: phrase, categoria: null,
+    });
+    await as(OWNER, () => db.query('select * from public.delete_caa_custom_symbol($1,$2,$3)', [CHILD, item.id, item.version]));
+    assert.ok((await selectEvents(OWNER)).some(({ pictograma_id, rotulo }) => pictograma_id === item.id && rotulo === item.label));
+  });
+
+  await t.test('validates event shape and isolates custom IDs and timestamps', async () => {
+    const other = await saveSymbol(OTHER_OWNER, OTHER_CHILD, 'Outro paciente', 13);
+    await assert.rejects(record(OWNER, { source: 'custom', symbolId: other.id }), { code: '42501' });
+    await assert.rejects(record(OWNER, { ...message('Teste'), symbolId: 'agua' }), { code: '23514' });
+    await assert.rejects(record(OWNER, { source: null }), { code: '23514' });
+    await assert.rejects(record(OWNER, { imageId: 0 }), { code: '23514' });
+    await assert.rejects(record(OWNER, message('x'.repeat(16001))), { code: '23514' });
+    await assert.rejects(record(OWNER, { ownerId: OTHER_OWNER, childId: OTHER_CHILD }), { code: '42501' });
+    await assert.rejects(record(PROFESSIONAL, message('Teste')), { code: '42501' });
+    await assert.rejects(record(null), { code: '42501' });
+    await assert.rejects(as(OWNER, () => db.query(`
+      insert into public.comunicacoes (crianca_id,pictograma_id,rotulo,categoria,created_at)
+      values ($1,'agua','Água','Necessidades','2025-01-01 00:00:00Z')
+    `, [CHILD])), { code: '42501' });
+  });
+
+
+
+  await t.test('history of a private photograph stores its symbol but never exposes its file', async () => {
+    const { rows: [{ path }] } = await as(OWNER, () => db.query(
+      'select public.reserve_caa_symbol_image($1,true) as path', [CHILD]));
+    await as(OWNER, () => db.query(
+      'insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',
+      [BUCKET, path, { size: 1224, mimetype: 'image/png' }]), 'object.upload');
+    const { rows: [{ symbol }] } = await as(OWNER, () => db.query(`
+      select symbol from public.save_caa_custom_symbol($1,null,'Fotografia fictícia',
+        'Texto fictício',array['essencial'],null,$2,false,0)
+    `, [CHILD, path]));
+    const { rows: [{ id }] } = await record(OWNER, {
+      source: 'custom', symbolId: symbol.id, text: symbol.label, imageId: null,
+    });
+    const history = (viewer) => as(viewer, () => db.query(
+      'select * from public.caa_events where id=$1', [id])).then(({ rows }) => rows);
+    assert.equal((await history(OWNER))[0].pictograma_id, symbol.id);
+    const linked = await history(PROFESSIONAL);
+    assert.equal(linked[0].rotulo, symbol.label);
+    assert.equal(linked[0].arasaac_id, null);
+    assert.ok(!JSON.stringify(linked).includes(path));
+    assert.deepEqual(await history(OTHER_OWNER), []);
+    const boardSymbol = (viewer) => as(viewer, () => db.query(
+      'select image_path from public.caa_custom_symbols where id=$1', [symbol.id])).then(({ rows }) => rows);
+    assert.deepEqual(await boardSymbol(OWNER), [{ image_path: path }]);
+    assert.deepEqual(await boardSymbol(PROFESSIONAL), []);
+    assert.deepEqual(await boardSymbol(OTHER_OWNER), []);
+    await as(OWNER, () => db.query('select * from public.delete_caa_custom_symbol($1,$2,$3)', [CHILD, symbol.id, symbol.version]));
+    assert.equal((await history(OWNER))[0].rotulo, symbol.label);
+    await as(OWNER, () => db.query('delete from public.comunicacoes where id=$1', [id]));
+  });
+
+  await t.test('the recording preference blocks writes and survives other board edits', async () => {
+    const settings = (id, version, fields) => as(id, () => db.query(
+      'select settings, version from public.save_caa_board_settings($1,$2,$3)',
+      [CHILD, fields, version],
+    )).then(({ rows }) => rows[0]);
+    await as(OWNER, () => db.query('select public.set_caa_board_member_access($1,$2,true)', [CHILD, PROFESSIONAL]));
+    assert.deepEqual(await settings(PROFESSIONAL, 0, { pageSize: 12, historyRecording: false }), {
+      version: 1, settings: { pageSize: 12 },
+    });
+    assert.deepEqual(await settings(OWNER, 1, { pageSize: 12, historyRecording: false }), {
+      version: 2, settings: { pageSize: 12, historyRecording: false },
+    });
+    await assert.rejects(record(OWNER), { code: '42501' });
+    await assert.rejects(record(OWNER, message('Com gravação desligada')), { code: '42501' });
+    assert.deepEqual(await settings(PROFESSIONAL, 2, { pageSize: 8, historyRecording: true }), {
+      version: 3, settings: { pageSize: 8, historyRecording: false },
+    });
+    assert.deepEqual(await settings(OWNER, 3, { pageSize: 10 }), {
+      version: 4, settings: { pageSize: 10, historyRecording: false },
+    });
+    await assert.rejects(settings(OWNER, 4, { historyRecording: 'true' }), { code: '22023' });
+    await assert.rejects(record(OWNER), { code: '42501' });
+    await record(OTHER_OWNER, { ownerId: OTHER_OWNER, childId: OTHER_CHILD });
+    assert.equal((await settings(OWNER, 4, { pageSize: 10, historyRecording: true })).settings.historyRecording, true);
+    await record(OWNER);
+    assert.equal((await selectEvents(OWNER)).length, 5);
+  });
+
+  await t.test('linked professionals can read, but only the guardian can purge the selected period', async () => {
+    const removeOlderThan = (id, date) => as(id, () => db.query(`
+      delete from public.comunicacoes where crianca_id = $1 and created_at < $2 returning id
+    `, [CHILD, date]));
+    await as(OWNER, () => db.query('select public.set_caa_board_member_access($1,$2,true)', [CHILD, PROFESSIONAL]));
+    const createdByProfessional = await saveSymbol(PROFESSIONAL, CHILD, 'Criado pelo fono', 15);
+    await record(OWNER, { source: 'custom', symbolId: createdByProfessional.id, text: createdByProfessional.label, imageId: 15 });
+    assert.equal((await selectEvents(PROFESSIONAL)).length, 6);
+    assert.equal((await removeOlderThan(PROFESSIONAL, '2026-02-01')).rows.length, 0);
+    assert.equal((await removeOlderThan(OTHER_OWNER, '2026-02-01')).rows.length, 0);
+    assert.equal((await removeOlderThan(OWNER, '2026-02-01')).rows.length, 1);
+    assert.equal((await selectEvents(OWNER)).length, 5);
+    await as(OWNER, () => db.query('select public.set_caa_board_member_access($1,$2,false)', [CHILD, PROFESSIONAL]));
+    assert.equal((await selectEvents(PROFESSIONAL)).length, 5);
+    await as(OWNER, () => db.query('select public.revoke_caa_member($1,$2)', [CHILD, PROFESSIONAL]));
+    assert.deepEqual(await selectEvents(PROFESSIONAL), []);
+    await db.query('delete from auth.users where id = $1', [OWNER]);
+    assert.equal((await db.query('select id from public.comunicacoes where crianca_id = $1', [CHILD])).rows.length, 0);
+  });
+});

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_BOARD_SETTINGS, type CustomSymbol, type PatientBoard } from "../lib/patientBoardModel";
+import { DEFAULT_BOARD_SETTINGS, normalizeBoardSettings, type CustomSymbol, type PatientBoard } from "../lib/patientBoardModel";
 import { BoardSettingsManager } from "./BoardSettingsManager";
 
 const actions = vi.hoisted(() => ({ save: vi.fn(), speak: vi.fn() }));
@@ -56,7 +56,7 @@ describe("Preferências da prancha", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Ouvir o símbolo ao adicioná-lo à frase" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Limite de símbolos por frase" }), { target: { value: "60" } });
     fireEvent.click(screen.getByRole("button", { name: "Ouvir prévia da voz" }));
-    expect(actions.speak).toHaveBeenCalledWith("Olá", { voiceURI: "pt-BR-AntonioNeural", rate: 1.2, bundledOnly: true });
+    expect(actions.speak).toHaveBeenCalledWith("Olá", { voiceURI: "pt-BR-AntonioNeural", rate: 1.2, offlineOnly: true });
     expect(actions.save).not.toHaveBeenCalled();
 
     switchSection("Organização");
@@ -71,6 +71,20 @@ describe("Preferências da prancha", () => {
       pageSize: 17, voiceURI: "pt-BR-AntonioNeural", rate: 1.2, speakOnSelect: false, maxSentenceSymbols: 60,
     }), 3);
     expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it("saves and reloads a stable per-patient local voice choice", async () => {
+    const changed = vi.fn();
+    const { unmount } = render(<BoardSettingsManager data={board} patientId="patient-1" onChange={changed} />);
+    switchSection("Voz");
+    fireEvent.change(screen.getByRole("combobox", { name: "Voz da prancha" }), { target: { value: "local-pt-BR" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar preferências" }));
+    await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+    const settings = normalizeBoardSettings(JSON.parse(JSON.stringify(actions.save.mock.lastCall?.[1])));
+    unmount();
+    render(<BoardSettingsManager data={{ ...board, settings }} patientId="patient-1" onChange={vi.fn()} />);
+    switchSection("Voz");
+    expect(screen.getByRole("combobox", { name: "Voz da prancha" })).toHaveValue("local-pt-BR");
   });
 
   it("pins a custom symbol separately from favorites and saves the previewed order", async () => {

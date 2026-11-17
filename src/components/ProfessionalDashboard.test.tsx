@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Comunicacao, Crianca } from "../lib/database.types";
+import { DEFAULT_BOARD_SETTINGS } from "../lib/patientBoardModel";
 import { todayInSaoPaulo } from "../hooks/useProfessionalDashboard";
 import { ProfessionalDashboard } from "./ProfessionalDashboard";
 
@@ -17,11 +18,16 @@ const service = vi.hoisted(() => ({
   redeemInvitation: vi.fn(),
 }));
 const download = vi.hoisted(() => vi.fn());
+const loadBoard = vi.hoisted(() => vi.fn());
 vi.mock("../lib/professional", () => ({
   ...service,
   ProfessionalError: class ProfessionalError extends Error {},
 }));
 vi.mock("../lib/patientReport", () => ({ downloadPatientReport: download }));
+vi.mock("../lib/patientBoard", () => ({ usePatientBoard: loadBoard }));
+vi.mock("./PatientPhoto", () => ({
+  PatientPhoto: ({ path }: { path: string }) => <span data-testid="scoped-photo">{path}</span>,
+}));
 
 const patients: Crianca[] = [
   {
@@ -47,6 +53,9 @@ function events(patientId = "patient-a", count = 1): Comunicacao[] {
     pictograma_id: "agua",
     rotulo: `Água ${index + 1}`,
     categoria: "Necessidades",
+    event_type: "symbol_selection",
+    symbol_source: "catalog",
+    arasaac_id: null,
     created_at: `${todayInSaoPaulo()}T12:00:00-03:00`,
   }));
 }
@@ -72,6 +81,7 @@ beforeEach(() => {
   );
   service.redeemInvitation.mockResolvedValue(undefined);
   download.mockResolvedValue(undefined);
+  loadBoard.mockReturnValue({ board: null, status: "idle", error: null, reload: vi.fn() });
 });
 
 describe("ProfessionalDashboard", () => {
@@ -113,6 +123,41 @@ describe("ProfessionalDashboard", () => {
       { signal: expect.any(AbortSignal) },
     );
     expect(download.mock.calls[0][0].events).toHaveLength(22);
+  });
+
+  it("shows private imagery only with patient board authorization while retaining linked history", async () => {
+    const privatePhoto = "patient-a/photo-private.jpg";
+    const selected = {
+      ...events()[0],
+      pictograma_id: "custom-private",
+      rotulo: "Minha garrafa",
+      symbol_source: "custom" as const,
+    };
+    service.listProfessionalPatients.mockResolvedValueOnce([{ ...patients[0], board_access: true }]);
+    service.fetchPatientEvents.mockResolvedValue([selected]);
+    loadBoard.mockImplementation((id: string | null, _: string, enabled: boolean) => ({
+      status: enabled && id === "patient-a" ? "ready" : "idle",
+      board: enabled && id === "patient-a" ? {
+        settings: DEFAULT_BOARD_SETTINGS,
+        settingsVersion: 1,
+        overrides: [],
+        symbols: [{
+          id: selected.pictograma_id, crianca_id: "patient-a",
+          label: selected.rotulo, speech_text: selected.rotulo, categories: ["necessidades"],
+          image_path: privatePhoto, arasaac_id: null, hidden: true,
+        }],
+      } : null,
+      error: null,
+      reload: vi.fn(),
+    }));
+    render(<ProfessionalDashboard userId="professional-a" preview={false} />);
+    await loaded();
+    expect(await screen.findByTestId("scoped-photo")).toHaveTextContent(privatePhoto);
+    expect(loadBoard).toHaveBeenCalledWith("patient-a", "professional-a", true);
+    fireEvent.click(screen.getByRole("button", { name: "Atualizar pacientes" }));
+    await loaded();
+    expect(screen.getByText("Minha garrafa")).toBeInTheDocument();
+    expect(screen.queryByTestId("scoped-photo")).not.toBeInTheDocument();
   });
 
   it("aborts a pending export when dates change and never downloads the old period", async () => {

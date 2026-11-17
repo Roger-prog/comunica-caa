@@ -14,6 +14,7 @@ function event(index: number, overrides: Partial<Comunicacao> = {}): Comunicacao
     usuario_id: "guardian-example", crianca_id: patient.id,
     pictograma_id: index % 2 ? "agua" : "mais",
     rotulo: index % 2 ? "Água" : "Mais", categoria: "Necessidades",
+    event_type: "symbol_selection", symbol_source: "catalog", arasaac_id: null,
     created_at: new Date(Date.parse("2026-11-01T12:00:00.000Z") + index * 60_000).toISOString(),
     ...overrides,
   };
@@ -70,9 +71,37 @@ describe("patientReport", () => {
     const doc = await buildPatientReport(input({ events: [] }));
     const pdf = content(doc);
     expect(pdf).toContain("Nenhum registro de comunicação no período selecionado.");
-    expect(pdf).toContain("REGISTROS");
+    expect(pdf).toContain("SELEÇÕES DE SÍMBOLOS");
     expect(pdf).toContain("DIAS COM REGISTROS");
     expect(doc.getNumberOfPages()).toBe(1);
+  });
+
+  it("exports a complete played message and keeps previous and custom selections distinguishable", async () => {
+    const doc = await buildPatientReport(input({ events: [
+      event(1, { event_type: "legacy_symbol", symbol_source: null }),
+      event(2, { event_type: "message_playback", symbol_source: null, pictograma_id: null, categoria: null, rotulo: "Eu quero tomar água agora." }),
+      event(3, { symbol_source: "custom", pictograma_id: "custom-symbol", rotulo: "Minha garrafa" }),
+    ] }));
+    const pdf = content(doc);
+    expect(pdf).toContain("Registro anterior");
+    expect(pdf).toMatch(/\((Mensagem reproduzida|Mensagem\) Tj\s+T\* \(reproduzida)\) Tj/);
+    expect(pdf).toContain("Eu quero tomar água agora.");
+    expect(pdf).toContain("Minha garrafa");
+    expect(pdf).toContain("Personalizado");
+    expect(pdf).not.toContain("custom-symbol");
+  });
+
+  it("keeps the end of a long played message across PDF pages", async () => {
+    const rotulo = `Início registrado ${"mensagem comprida para a prancha ".repeat(370)} Fim confirmado.`;
+    const doc = await buildPatientReport(input({ events: [
+      event(1, { event_type: "message_playback", symbol_source: null, pictograma_id: null, categoria: null, rotulo }),
+    ] }));
+    const renderedText = [...content(doc).matchAll(/\(([^)\n]*)\) Tj/g)]
+      .map((match) => match[1]).join(" ");
+    expect(doc.getNumberOfPages()).toBeGreaterThan(1);
+    expect(renderedText).toContain("Início registrado");
+    expect(renderedText).toContain("Fim confirmado.");
+    expect(renderedText.match(/mensagem comprida para a prancha/g)).toHaveLength(370);
   });
 
   it("uses São Paulo dates at period boundaries and does not silently hide rows", async () => {

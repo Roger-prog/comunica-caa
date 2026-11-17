@@ -16,14 +16,20 @@ export type Crianca = {
   updated_at: string;
   board_access?: boolean;
 };
+export type CommunicationEventType = "legacy_symbol" | "symbol_selection" | "message_playback";
+export type CommunicationSymbolSource = "catalog" | "custom";
+
 export type Comunicacao = {
   id: string;
   usuario_id: string;
   crianca_id: string;
-  pictograma_id: string;
+  pictograma_id: string | null;
   rotulo: string;
-  categoria: string;
+  categoria: string | null;
   created_at: string;
+  event_type: CommunicationEventType;
+  symbol_source: CommunicationSymbolSource | null;
+  arasaac_id: number | null;
 };
 export type CaaInvitation = {
   id: string;
@@ -76,9 +82,12 @@ export type Database = {
           id?: string;
           usuario_id?: string;
           crianca_id: string;
-          pictograma_id: string;
+          pictograma_id: string | null;
           rotulo: string;
-          categoria: string;
+          categoria: string | null;
+          event_type?: CommunicationEventType;
+          symbol_source?: CommunicationSymbolSource | null;
+          arasaac_id?: number | null;
         };
         Update: never;
         Relationships: [
