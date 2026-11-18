@@ -7,24 +7,29 @@ import type {
 } from "./speechEngine";
 import { getBundledSpeechAudio } from "../data/bundledSpeech";
 import { createLocalPhraseCache } from "./localPhrasePlayer";
+import { synthesizeLocalNeural } from "./localNeuralProvider";
+import { DEFAULT_LOCAL_NEURAL_VOICE, isLocalNeuralVoice, LOCAL_NEURAL_VOICES } from "./localNeuralVoices";
 import { MAX_SENTENCE_SYMBOLS } from "./patientBoardModel";
 
 const MAX_TEXT_LENGTH = 1_000;
+const MAX_BOARD_TEXT_LENGTH = 16_000;
+const LOCAL_CHUNK_LENGTH = 220;
+const LOCAL_SYNTHESIS_TIMEOUT_MS = 150_000;
 const PHRASE_CHUNK_SIZE = 8;
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
 const CACHE_MAX_ENTRIES = 64;
 const CACHE_MAX_BYTES = 8 * 1024 * 1024;
 const CACHE_TTL_MS = 10 * 60_000;
-const VOICES: readonly SpeechVoice[] = [
+const RECORDED_VOICES: readonly SpeechVoice[] = [
   {
     voiceURI: "pt-BR-FranciscaNeural",
-    name: "Francisca · voz neural",
+    name: "Francisca · gravações incluídas",
     lang: "pt-BR",
   },
   {
     voiceURI: "pt-BR-AntonioNeural",
-    name: "Antônio · voz neural",
+    name: "Antônio · gravações incluídas",
     lang: "pt-BR",
   },
 ];
@@ -110,9 +115,10 @@ async function readAudio(response: Response): Promise<Blob> {
 
 type BundledAudioLookup = (text: string, voice: string) => Blob | undefined;
 
-/** Plays bundled symbols and assembled board phrases locally; other text uses TTS. */
+/** Shares playback between neural synthesis and bundled recordings. A null
+ * endpoint permits only on-device processing and is used by the web app. */
 export function createEdgeSpeechEngine(
-  endpoint = "/api/tts",
+  endpoint: string | null = "/api/tts",
   bundledAudio: BundledAudioLookup = getBundledSpeechAudio,
   localPhrases: ReturnType<typeof createLocalPhraseCache> = createLocalPhraseCache(),
 ): SpeechEngine {
@@ -123,6 +129,8 @@ export function createEdgeSpeechEngine(
     typeof AbortController === "function" &&
     typeof URL.createObjectURL === "function" &&
     typeof URL.revokeObjectURL === "function";
+  const voices = [...LOCAL_NEURAL_VOICES, ...RECORDED_VOICES];
+  const defaultVoice = endpoint === null ? DEFAULT_LOCAL_NEURAL_VOICE : RECORDED_VOICES[0].voiceURI;
   let generation = 0;
   let current: Playback | null = null;
   let cacheGeneration = 0;
@@ -136,15 +144,16 @@ export function createEdgeSpeechEngine(
 
   function requestFor(text: string, options: SpeechOptions): AudioRequest | null {
     const message = text.trim();
-    if (!message || Array.from(message).length > (options.offlineOnly ? 12_000 : MAX_TEXT_LENGTH)) return null;
-    const voice = VOICES.some((item) => item.voiceURI === options.voiceURI)
-      ? options.voiceURI!
-      : VOICES[0].voiceURI;
+    const voice = voices.some((item) => item.voiceURI === options.voiceURI) ? options.voiceURI! : defaultVoice;
+    const maxLength = options.offlineOnly || endpoint === null || isLocalNeuralVoice(voice)
+      ? MAX_BOARD_TEXT_LENGTH : MAX_TEXT_LENGTH;
+    if (!message || Array.from(message).length > maxLength) return null;
     const rate = bounded(options.rate, 0.5, 1.5);
     return { text: message, voice, rate, key: JSON.stringify([message, voice, rate]) };
   }
 
   function bundled(request: AudioRequest): Blob | undefined {
+    if (isLocalNeuralVoice(request.voice)) return;
     // Built-in vocabulary is already included in the application download.
     // Its base-rate recording is independent of the user's playback speed.
     const key = JSON.stringify([request.text, request.voice]);
@@ -235,20 +244,36 @@ export function createEdgeSpeechEngine(
         promise: undefined as unknown as Promise<Blob>,
       };
       downloads.set(request.key, created);
-      created.timer = setTimeout(() => created.controller.abort(), REQUEST_TIMEOUT_MS);
+      const local = isLocalNeuralVoice(request.voice) ? request.voice : null;
+      created.timer = setTimeout(() => created.controller.abort(new Error("audio_timeout")),
+        local ? LOCAL_SYNTHESIS_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
       created.promise = (async () => {
         try {
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "audio/mpeg" },
-            body: JSON.stringify({ text: request.text, voice: request.voice, rate: request.rate }),
-            signal: created.controller.signal,
-            credentials: "omit",
-            cache: "no-store",
-            redirect: "error",
-          });
-          if (created.controller.signal.aborted) throw new Error("aborted_audio");
-          const blob = await readAudio(response);
+          let blob: Blob;
+          if (local) {
+            try {
+              blob = await synthesizeLocalNeural(request.text, local, request.rate, created.controller.signal);
+            } catch (error) {
+              if (created.controller.signal.aborted) throw created.controller.signal.reason;
+              throw error;
+            }
+            if (blob.type !== "audio/wav" || !blob.size || blob.size > CACHE_MAX_BYTES) {
+              throw new Error("invalid_local_audio");
+            }
+          } else {
+            if (!endpoint) throw new Error("network_synthesis_disabled");
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Accept: "audio/mpeg" },
+              body: JSON.stringify({ text: request.text, voice: request.voice, rate: request.rate }),
+              signal: created.controller.signal,
+              credentials: "omit",
+              cache: "no-store",
+              redirect: "error",
+            });
+            if (created.controller.signal.aborted) throw new Error("aborted_audio");
+            blob = await readAudio(response);
+          }
           if (created.controller.signal.aborted || epoch !== cacheGeneration)
             throw new Error("aborted_audio");
           remember(request.key, blob);
@@ -309,7 +334,8 @@ export function createEdgeSpeechEngine(
     const owner = Symbol();
     for (const text of texts.slice(0, CACHE_MAX_ENTRIES)) {
       const request = requestFor(text, options);
-      if (!request || bundled(request) || options.offlineOnly || cached(request.key)) continue;
+      if (!request || bundled(request) || !endpoint || options.offlineOnly ||
+          isLocalNeuralVoice(request.voice) || cached(request.key)) continue;
       if (activeBackground?.request.key === request.key) {
         activeBackground.owners.add(owner);
         continue;
@@ -450,13 +476,60 @@ export function createEdgeSpeechEngine(
     return playChunk(0);
   }
 
+  function playSynthesis(playback: Playback, request: AudioRequest, volume: number, next?: () => void) {
+    const fromMemory = cached(request.key);
+    if (fromMemory) return playBlob(playback, fromMemory, volume, 1, next);
+    const download = acquireDownload(request);
+    playback.releaseDownload = download.release;
+    return download.promise.then((received) => {
+      if (!isCurrent(playback)) return;
+      try { return playBlob(playback, received, volume, 1, next); }
+      catch { fail(playback, "failed"); }
+    }, (error: unknown) => {
+      let reason: SpeechFailure = "failed";
+      if (isLocalNeuralVoice(request.voice) && error instanceof Error) {
+        if (error.message === "audio_timeout") reason = "local-timeout";
+        else if (["local_neural_model", "local_neural_unsupported", "local_neural_worker"].includes(error.message)) {
+          reason = "local-model";
+        } else if (["local_neural_inference", "local_neural_audio", "invalid_local_audio"].includes(error.message)) {
+          reason = "local-inference";
+        }
+      }
+      fail(playback, reason);
+    });
+  }
+
+  function playNeural(playback: Playback, request: AudioRequest, volume: number) {
+    const chunks: string[] = [];
+    let remaining = request.text;
+    // Begin playback of the first bounded chunk without generating the whole
+    // composer at once. Splits occur between words to preserve the message.
+    while (remaining.length > LOCAL_CHUNK_LENGTH) {
+      let boundary = remaining.lastIndexOf(" ", LOCAL_CHUNK_LENGTH);
+      if (boundary < 1) boundary = remaining.indexOf(" ", LOCAL_CHUNK_LENGTH);
+      if (boundary < 1) break;
+      chunks.push(remaining.slice(0, boundary));
+      remaining = remaining.slice(boundary + 1).trimStart();
+    }
+    if (remaining) chunks.push(remaining);
+    function playChunk(index: number): void | Promise<void> {
+      if (!isCurrent(playback)) return;
+      const text = chunks[index];
+      const segment = { ...request, text, key: JSON.stringify([text, request.voice, request.rate]) };
+      const next = index + 1 < chunks.length ? () => { void playChunk(index + 1); } : undefined;
+      try { return playSynthesis(playback, segment, volume, next); }
+      catch { fail(playback, "failed"); }
+    }
+    return playChunk(0);
+  }
+
   return {
     supported,
-    getVoices: () => VOICES.map((voice) => ({ ...voice })),
+    getVoices: () => voices.map((voice) => ({ ...voice })),
     subscribeVoices: () => () => {},
     canPlayOffline(text, options) {
       const request = requestFor(text, options);
-      return Boolean(supported && request && (bundled(request) ||
+      return Boolean(supported && request && (isLocalNeuralVoice(request.voice) || bundled(request) ||
         (options.segments && phraseClips(options.segments, request))));
     },
     cancel,
@@ -506,6 +579,7 @@ export function createEdgeSpeechEngine(
       current = playback;
       try {
         const volume = bounded(options.volume, 0, 1);
+        if (isLocalNeuralVoice(request.voice)) return playNeural(playback, request, volume);
         const recording = bundled(request);
         if (recording) {
           // Selecting a symbol also prepares its PCM for the phrase being built.
@@ -519,22 +593,11 @@ export function createEdgeSpeechEngine(
         }
         const clips = options.segments && phraseClips(options.segments, request);
         if (clips) return playClips(playback, clips, volume, request.rate);
-        if (options.offlineOnly) {
+        if (options.offlineOnly || !endpoint) {
           fail(playback, "failed");
           return;
         }
-        const blob = cached(request.key);
-        if (blob) return playBlob(playback, blob, volume);
-        const download = acquireDownload(request);
-        playback.releaseDownload = download.release;
-        return download.promise.then(
-          (received) => {
-            if (!isCurrent(playback)) return;
-            try { return playBlob(playback, received, volume); }
-            catch { fail(playback, "failed"); }
-          },
-          () => fail(playback, "failed"),
-        );
+        return playSynthesis(playback, request, volume);
       } catch {
         // Includes HTTP failures, aborted downloads and malformed audio; no body is echoed.
         fail(playback, "failed");

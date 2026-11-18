@@ -20,6 +20,7 @@ vi.mock("./hooks/useSpeech", () => ({
     supported: true, voices: [], speaking: false, error: null, notice: null,
     needsPlaybackGesture: false, speak: fixture.speak, stop: () => {},
     retryPlayback: () => {}, prefetch: () => () => {}, prepareSentence: () => () => {},
+    canRetrySynthesis: false, retrySynthesis: () => {}, canFallbackToDevice: false, fallbackToDevice: () => {},
   }),
 }));
 
@@ -27,6 +28,9 @@ const parentId = "11111111-1111-4111-8111-111111111111";
 const therapistId = "22222222-2222-4222-8222-222222222222";
 const patientId = "33333333-3333-4333-8333-333333333333";
 const symbolId = "44444444-4444-4444-8444-444444444444";
+const secondPatientId = "66666666-6666-4666-8666-666666666666";
+const faber = "pt_BR-faber-medium";
+const edresson = "pt_BR-edresson-low";
 const origin = "https://activity-sdk.example.test";
 
 function sessionFor(id: string, email: string): Session {
@@ -47,7 +51,7 @@ function sessionFor(id: string, email: string): Session {
 // and audio start are simulated here; migrations and RLS have a separate suite.
 let fixtureNumber = 0;
 
-function connect() {
+function connect({ twoPatients = false, professionalBoardAccess = false } = {}) {
   const sessions = [
     sessionFor(parentId, "responsavel@example.test"),
     sessionFor(therapistId, "profissional@example.test"),
@@ -57,7 +61,14 @@ function connect() {
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   };
   const events: Comunicacao[] = [];
-  let board: BoardSettingsRow | undefined;
+  const secondPatient = { ...patient, id: secondPatientId, nome: "Segundo paciente fictício" };
+  const boards = new Map<string, BoardSettingsRow>();
+  if (twoPatients) boards.set(secondPatientId, {
+    crianca_id: secondPatientId,
+    settings: { ...DEFAULT_BOARD_SETTINGS, voiceURI: faber, rate: 0.7 },
+    version: 1,
+    updated_at: secondPatient.updated_at,
+  });
   let symbol: CustomSymbol | undefined;
   const api: typeof fetch = async (input, init) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, origin);
@@ -66,6 +77,8 @@ function connect() {
     const viewer = sessions.find((session) => headers.get("Authorization") === "Bearer " + session.access_token)?.user;
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     const patientMatches = (parameter: string) => url.searchParams.get(parameter) === "eq." + patientId;
+    const requestedChildId = url.searchParams.get("crianca_id")?.replace(/^eq\./, "") ?? "";
+    const editable = viewer?.id === parentId || (viewer?.id === therapistId && professionalBoardAccess);
     const json = (value: unknown) => new Response(JSON.stringify(value), {
       headers: { "Content-Type": "application/json" },
     });
@@ -82,51 +95,67 @@ function connect() {
       role: viewer.id === parentId ? "responsavel" : "fonoaudiologo",
     }]);
     if (name === "criancas") {
-      const afterCursor = url.searchParams.getAll("id").some((filter) => filter.startsWith("gt."));
-      return rows(afterCursor ? [] : [patient]);
+      const idFilters = url.searchParams.getAll("id");
+      if (idFilters.some((filter) => filter.startsWith("gt."))) return rows([]);
+      const available = viewer.id === parentId && twoPatients ? [patient, secondPatient] : [patient];
+      const exactId = idFilters.find((filter) => filter.startsWith("eq."))?.slice(3);
+      return rows(exactId ? available.filter((child) => child.id === exactId) : available);
     }
     if (name === "caa_members") return rows(
       viewer.id === therapistId && !url.searchParams.get("crianca_id")?.startsWith("gt.")
-        ? [{ id: "member", crianca_id: patientId, professional_id: therapistId, board_access: false }] : [],
+        ? [{ id: "member", crianca_id: patientId, professional_id: therapistId, board_access: professionalBoardAccess }] : [],
     );
     if (name === "list_caa_members") return json([]);
-    if (name === "has_caa_board_access") return json(viewer.id === parentId && body.p_crianca_id === patientId);
+    if (name === "has_caa_board_access") {
+      const allowedPatient = body.p_crianca_id === patientId ||
+        (viewer.id === parentId && twoPatients && body.p_crianca_id === secondPatientId);
+      return json(editable && allowedPatient);
+    }
     if (name === "caa_catalog_overrides") return json([]);
     if (name === "caa_custom_symbols") return json(symbol && patientMatches("crianca_id") ? [symbol] : []);
-    if (name === "caa_board_settings") return json(board && patientMatches("crianca_id") ? [board] : []);
-    if (name === "save_caa_custom_symbol" && viewer.id === parentId && body.p_crianca_id === patientId) {
+    if (name === "caa_board_settings") {
+      const board = boards.get(requestedChildId);
+      return json(editable && board ? [board] : []);
+    }
+    if (name === "save_caa_custom_symbol" && editable && body.p_crianca_id === patientId) {
       symbol = {
-        id: symbolId, crianca_id: patientId, created_by: parentId, label: body.p_label,
+        id: symbolId, crianca_id: patientId, created_by: viewer.id, label: body.p_label,
         speech_text: body.p_speech_text, categories: body.p_categories, arasaac_id: body.p_arasaac_id,
         image_path: null, source: "arasaac", hidden: false, version: 1,
         created_at: patient.created_at, updated_at: patient.updated_at,
       };
       return json({ symbol, retired_path: null });
     }
-    if (name === "save_caa_board_settings" && viewer.id === parentId && body.p_crianca_id === patientId) {
-      board = { crianca_id: patientId, settings: body.p_settings, version: (board?.version ?? 0) + 1,
+    if (name === "save_caa_board_settings" && editable && body.p_crianca_id === patientId) {
+      const board = { crianca_id: patientId, settings: body.p_settings, version: (boards.get(patientId)?.version ?? 0) + 1,
         updated_at: new Date().toISOString() };
+      boards.set(patientId, board);
       return json(board);
     }
     if (name === "comunicacoes" && init?.method === "POST") {
-      if (viewer.id !== parentId || body.crianca_id !== patientId || body.usuario_id !== viewer.id ||
-          board?.settings.historyRecording === false) return new Response(null, { status: 403 });
+      const allowedPatient = body.crianca_id === patientId || (twoPatients && body.crianca_id === secondPatientId);
+      if (viewer.id !== parentId || !allowedPatient || body.usuario_id !== viewer.id ||
+          boards.get(body.crianca_id)?.settings.historyRecording === false) return new Response(null, { status: 403 });
       const event = { ...body, created_at: new Date().toISOString() } as Comunicacao;
       events.unshift(event);
       return json(event);
     }
-    if ((name === "comunicacoes" || name === "caa_events") && patientMatches("crianca_id")) {
+    const eligiblePatient = requestedChildId === patientId ||
+      (viewer.id === parentId && twoPatients && requestedChildId === secondPatientId);
+    if ((name === "comunicacoes" || name === "caa_events") && eligiblePatient) {
       if (init?.method === "DELETE") {
         if (viewer.id !== parentId) return new Response(null, { status: 403 });
         const before = url.searchParams.get("created_at")?.replace(/^lt\./, "");
-        const remaining = before ? events.filter((item) => item.created_at >= before) : [];
+        const remaining = events.filter((item) =>
+          item.crianca_id !== requestedChildId || (before && item.created_at >= before));
         events.splice(0, events.length, ...remaining);
         return new Response(null, { status: 204 });
       }
       const cursor = url.searchParams.get("or");
       const cursorTime = cursor?.match(/created_at\.lt\.([^,]+)/)?.[1];
       const limit = Number(url.searchParams.get("limit")) || events.length;
-      const matching = cursorTime ? events.filter((item) => item.created_at < cursorTime) : events;
+      const matching = events.filter((item) =>
+        item.crianca_id === requestedChildId && (!cursorTime || item.created_at < cursorTime));
       return json(matching.slice(0, limit));
     }
     throw new Error("Unexpected activity fixture request " + url.pathname);
@@ -157,7 +186,23 @@ async function signIn(email: string) {
   fireEvent.click(screen.getByRole("button", { name: "Entrar na minha conta" }));
 }
 
+async function createTestSymbol(label: string, speechText: string) {
+  fireEvent.click(await screen.findByRole("button", { name: "Criar símbolo" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Nome do símbolo" }), { target: { value: label } });
+  fireEvent.change(screen.getByRole("textbox", { name: "Frase falada" }), { target: { value: speechText } });
+  fireEvent.click(screen.getByRole("button", { name: "Escolher pictograma ARASAAC" }));
+  const picker = within(screen.getByRole("region", { name: "Galeria de pictogramas ARASAAC" }));
+  fireEvent.change(picker.getByRole("searchbox"), { target: { value: "gato" } });
+  fireEvent.click(picker.getByRole("button", { name: /^gato$/i }));
+  fireEvent.click(await picker.findByRole("button", { name: "gato, pictograma 123" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Adicionar aos favoritos" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Mostrar no Início" }));
+  fireEvent.click(screen.getByRole("button", { name: "Salvar símbolo" }));
+  await screen.findByText("Símbolo criado.");
+}
+
 afterEach(async () => {
+  fixture.speak.mockClear();
   cleanup();
   await fixture.client?.auth.stopAutoRefresh();
   fixture.client = null;
@@ -175,18 +220,7 @@ it("persists custom and official selections and one played message across a relo
   await signIn("responsavel@example.test");
   await screen.findByRole("button", { name: "Falar Água" });
   navigate("Ajustes");
-  fireEvent.click(await screen.findByRole("button", { name: "Criar símbolo" }));
-  fireEvent.change(screen.getByRole("textbox", { name: "Nome do símbolo" }), { target: { value: "Meu gato" } });
-  fireEvent.change(screen.getByRole("textbox", { name: "Frase falada" }), { target: { value: "Ver meu gato" } });
-  fireEvent.click(screen.getByRole("button", { name: "Escolher pictograma ARASAAC" }));
-  const picker = within(screen.getByRole("region", { name: "Galeria de pictogramas ARASAAC" }));
-  fireEvent.change(picker.getByRole("searchbox"), { target: { value: "gato" } });
-  fireEvent.click(picker.getByRole("button", { name: /^gato$/i }));
-  fireEvent.click(await picker.findByRole("button", { name: "gato, pictograma 123" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "Adicionar aos favoritos" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "Mostrar no Início" }));
-  fireEvent.click(screen.getByRole("button", { name: "Salvar símbolo" }));
-  await screen.findByText("Símbolo criado.");
+  await createTestSymbol("Meu gato", "Ver meu gato");
 
   navigate("Prancha");
   fireEvent.click(await screen.findByRole("button", { name: "Falar Água" }));
@@ -267,4 +301,66 @@ it("can search older history, pause recording and delete only records before a s
   navigate("Histórico");
   await screen.findByRole("region", { name: "Registros de comunicação" });
   expect(screen.queryByText("Registro mais antigo")).not.toBeInTheDocument();
+}, 20_000);
+
+it("keeps each patient's saved neural voice after a preference change, switch and reload", async () => {
+  vi.stubGlobal("BroadcastChannel", undefined);
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  connect({ twoPatients: true });
+  const parent = mount("/login");
+  await signIn("responsavel@example.test");
+  await screen.findByRole("button", { name: "Falar Água" });
+  navigate("Ajustes");
+  await createTestSymbol("Símbolo fictício", "Um gato amarelo");
+
+  fireEvent.click(screen.getByRole("button", { name: "Preferências" }));
+  fireEvent.click(screen.getByRole("button", { name: "Voz" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Voz da prancha" }), { target: { value: edresson } });
+  fireEvent.change(screen.getByRole("slider", { name: /velocidade da voz/i }), { target: { value: "1.3" } });
+  fireEvent.click(screen.getByRole("button", { name: "Salvar preferências" }));
+  await screen.findByText("Preferências da prancha salvas.");
+
+  navigate("Prancha");
+  fireEvent.click(await screen.findByRole("button", { name: "Falar Água" }));
+  fireEvent.click(screen.getByRole("button", { name: "Meus símbolos" }));
+  fireEvent.click(screen.getByRole("button", { name: "Falar Símbolo fictício" }));
+  fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
+  expect(fixture.speak.mock.calls.slice(-3)).toEqual(
+    ["Água", "Um gato amarelo", "Água Um gato amarelo"].map((text) => [
+      text, expect.objectContaining({ voiceURI: edresson, rate: 1.3 }),
+    ]),
+  );
+
+  const profileSelect = screen.getByRole("combobox", { name: "Perfil da criança" });
+  fireEvent.change(profileSelect, { target: { value: secondPatientId } });
+  fireEvent.click(await screen.findByRole("button", { name: "Falar Água" }));
+  expect(fixture.speak).toHaveBeenLastCalledWith("Água", expect.objectContaining({ voiceURI: faber, rate: 0.7 }));
+  expect(screen.queryByRole("button", { name: "Falar Símbolo fictício" })).not.toBeInTheDocument();
+
+  parent.unmount();
+  mount("/prancha");
+  fireEvent.click(await screen.findByRole("button", { name: "Meus símbolos" }));
+  fireEvent.click(screen.getByRole("button", { name: "Falar Símbolo fictício" }));
+  expect(fixture.speak).toHaveBeenLastCalledWith("Um gato amarelo", expect.objectContaining({ voiceURI: edresson, rate: 1.3 }));
+}, 20_000);
+
+it("plays a symbol created by an authorized professional using the patient's preferences", async () => {
+  vi.stubGlobal("BroadcastChannel", undefined);
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  connect({ professionalBoardAccess: true });
+  const therapist = mount("/login");
+  await signIn("profissional@example.test");
+  fireEvent.click(await screen.findByRole("button", { name: "Paciente fictício" }));
+  fireEvent.click(await screen.findByText("Personalizar prancha de Paciente fictício"));
+  await createTestSymbol("Cadastrado em consulta", "Um animal de estimação");
+  therapist.unmount();
+  await fixture.client!.auth.signOut();
+
+  mount("/login");
+  await signIn("responsavel@example.test");
+  fireEvent.click(await screen.findByRole("button", { name: "Meus símbolos" }));
+  fireEvent.click(screen.getByRole("button", { name: "Falar Cadastrado em consulta" }));
+  expect(fixture.speak).toHaveBeenLastCalledWith("Um animal de estimação", expect.objectContaining({
+    voiceURI: DEFAULT_BOARD_SETTINGS.voiceURI, rate: DEFAULT_BOARD_SETTINGS.rate,
+  }));
 }, 20_000);

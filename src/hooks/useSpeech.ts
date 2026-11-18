@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import {
   createWebSpeechEngine,
   LOCAL_SPEECH_VOICE,
@@ -12,47 +12,68 @@ import { createEdgeSpeechEngine } from "../lib/edgeSpeechEngine";
 export type { SpeechOptions } from "../lib/speechEngine";
 
 type PlaybackOptions = SpeechOptions & { onStart?: () => void };
+type RecoveryAction = "audio-ready" | "synthesis";
+type SpeechAttempt = { text: string; options: SpeechOptions; notifyStart: () => void };
 
-/** Coordinates neural recordings and local Brazilian Portuguese speech. */
-export function useSpeech(engine?: SpeechEngine) {
-  const [defaultEngine] = useState(() =>
-    createEdgeSpeechEngine(
-      import.meta.env.VITE_TTS_API_URL?.trim() || "/api/tts",
-    ),
-  );
+function reportNeuralFailure(code: "unavailable" | "playback" | "runtime" | "local-model" | "local-inference" | "local-timeout") {
+  if (import.meta.env.MODE !== "test") console.warn("[Comunica/Speech] Voz neural local", code);
+}
+
+/** Coordinates neural playback and device speech selected explicitly by the user. */
+export function useSpeech(engine?: SpeechEngine, scopeKey?: string) {
+  const [defaultEngine] = useState(() => createEdgeSpeechEngine(null));
   const selectedEngine = engine ?? defaultEngine;
   const [deviceEngine] = useState(createWebSpeechEngine);
   const supported = selectedEngine.supported || (selectedEngine === defaultEngine && deviceEngine.supported);
   const [voices, setVoices] = useState<SpeechVoice[]>([]);
   const [speaking, setSpeaking] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [needsPlaybackGesture, setNeedsPlaybackGesture] = useState(false);
+  const [recovery, setRecoveryState] = useState<{ action: RecoveryAction } | null>(null);
+  const activeRecovery = useRef(recovery);
+  const [deviceVoiceAvailable, setDeviceVoiceAvailable] = useState(false);
   const generation = useRef(0);
   const deviceInUse = useRef(false);
   const prefetches = useRef(new Set<() => void>());
+  const attempt = useRef<SpeechAttempt | null>(null);
 
-  useEffect(() => {
+  const setRecovery = useCallback((action: RecoveryAction | null) => {
+    const next = action ? { action } : null;
+    activeRecovery.current = next;
+    setRecoveryState(next);
+  }, []);
+
+  const cancelPlayback = useCallback(() => {
+    generation.current += 1;
+    selectedEngine.cancel();
+    if (deviceInUse.current) deviceEngine.cancel();
+    deviceInUse.current = false;
+  }, [deviceEngine, selectedEngine]);
+
+  useLayoutEffect(() => {
     setSpeaking(false);
+    setPreparing(false);
     setError(null);
     setNotice(null);
-    setNeedsPlaybackGesture(false);
+    setRecovery(null);
     const loadVoices = () => setVoices(selectedEngine.getVoices());
+    const loadDeviceVoice = () => setDeviceVoiceAvailable(deviceEngine.getVoices().length > 0);
     loadVoices();
+    loadDeviceVoice();
     const unsubscribe = selectedEngine.subscribeVoices(loadVoices);
+    const unsubscribeDevice = deviceEngine.subscribeVoices(loadDeviceVoice);
 
     return () => {
       unsubscribe();
-      generation.current += 1;
+      unsubscribeDevice();
+      activeRecovery.current = null;
+      attempt.current = null;
+      cancelPlayback();
       for (const cancel of prefetches.current) cancel();
-      selectedEngine.cancel();
-      if (deviceInUse.current) deviceEngine.cancel();
-      deviceInUse.current = false;
-      // Release session-scoped blobs and pending downloads on engine/user exit.
-      // clearCache remains reusable during React StrictMode's cleanup cycle.
       selectedEngine.clearCache?.();
     };
-  }, [deviceEngine, selectedEngine]);
+  }, [cancelPlayback, deviceEngine, selectedEngine, setRecovery, scopeKey]);
 
   const prefetch = useCallback(
     (texts: readonly string[], options: SpeechOptions = {}): (() => void) => {
@@ -102,144 +123,179 @@ export function useSpeech(engine?: SpeechEngine) {
   );
 
   const stop = useCallback(() => {
-    generation.current += 1;
-    selectedEngine.cancel();
-    if (deviceInUse.current) deviceEngine.cancel();
-    deviceInUse.current = false;
+    cancelPlayback();
+    attempt.current = null;
     setSpeaking(false);
-    setNeedsPlaybackGesture(false);
+    setPreparing(false);
+    setRecovery(null);
     setError(null);
     setNotice(null);
-  }, [deviceEngine, selectedEngine]);
+  }, [cancelPlayback, setRecovery]);
 
-  const speak = useCallback(
-    (text: string, { onStart, ...options }: PlaybackOptions = {}) => {
-      const message = text.trim();
-      if (!message) return;
-      if (!supported) {
-        setError(
-          "A leitura em voz alta não está disponível neste navegador. O texto continua visível na prancha.",
-        );
+  const start = useCallback((pending: SpeechAttempt, useDevice: boolean) => {
+    cancelPlayback();
+    const request = generation.current;
+    const { text, options } = pending;
+    attempt.current = pending;
+    setPreparing(false);
+    setError(null);
+    setRecovery(null);
+    setNotice(null);
+
+    const localVoice = useDevice ? deviceEngine.getVoices()[0] : undefined;
+    if (useDevice && !localVoice) {
+      setSpeaking(false);
+      setDeviceVoiceAvailable(false);
+      setError("Para usar a voz do dispositivo, habilite uma voz local em português do Brasil e tente novamente.");
+      if (options.voiceURI !== LOCAL_SPEECH_VOICE) setRecovery("synthesis");
+      else attempt.current = null;
+      return;
+    }
+    if (!selectedEngine.supported && !useDevice) {
+      setSpeaking(false);
+      if (supported) setRecovery("synthesis");
+      else attempt.current = null;
+      setError("A voz neural local não está disponível neste navegador. O texto continua visível na prancha.");
+      return;
+    }
+
+    const target = localVoice ? deviceEngine : selectedEngine;
+    deviceInUse.current = Boolean(localVoice);
+    if (localVoice && options.voiceURI !== LOCAL_SPEECH_VOICE) {
+      setNotice(`Usando a voz do dispositivo ${localVoice.name} (português do Brasil) para esta leitura.`);
+    }
+    if (!useDevice && options.offlineOnly && selectedEngine.canPlayOffline?.(text, options) === false) {
+      reportNeuralFailure("unavailable");
+      setSpeaking(false);
+      setDeviceVoiceAvailable(deviceEngine.getVoices().length > 0);
+      setRecovery("synthesis");
+      setError("A voz selecionada não está disponível para este texto. Escolha uma voz neural local nos ajustes da prancha.");
+      return;
+    }
+
+    const onPlaybackStart = () => {
+      if (generation.current !== request) return;
+      setPreparing(false);
+      pending.notifyStart();
+    };
+    const onEnd = () => {
+      if (generation.current !== request) return;
+      generation.current += 1;
+      attempt.current = null;
+      setSpeaking(false);
+      setPreparing(false);
+      setRecovery(null);
+    };
+    const onError = (reason: SpeechFailure, runtimeFailure = false) => {
+      if (generation.current !== request) return;
+      setSpeaking(false);
+      setPreparing(false);
+      if (!useDevice && reason === "not-allowed" && selectedEngine.retryPlayback) {
+        setRecovery("audio-ready");
+        setError("O áudio está pronto. Toque em Ouvir áudio pronto para reproduzir.");
         return;
       }
-
-      const localPreferred = options.voiceURI === LOCAL_SPEECH_VOICE;
-      const wantsDevice = localPreferred || Boolean(options.offlineOnly &&
-        !selectedEngine.canPlayOffline?.(message, options));
-      const localVoice = wantsDevice ? deviceEngine.getVoices()[0] : undefined;
-      const useDevice = Boolean(localVoice);
-      const bundledFallback = localPreferred && !useDevice
-        ? { ...options, voiceURI: undefined, offlineOnly: true } : null;
-      if (wantsDevice && !useDevice &&
-          !(bundledFallback && selectedEngine.canPlayOffline?.(message, bundledFallback))) {
-        stop();
-        setError("Para ouvir esta mensagem, habilite uma voz local em português do Brasil no seu dispositivo e toque novamente.");
+      generation.current += 1;
+      if (reason === "canceled" || reason === "interrupted") {
+        attempt.current = null;
+        setRecovery(null);
         return;
       }
-
-      const request = ++generation.current;
-      // Invalidate previous callbacks before cancel(), which can emit an error event.
-      selectedEngine.cancel();
-      if (deviceInUse.current) deviceEngine.cancel();
-      deviceInUse.current = useDevice;
-      setError(null);
-      setNeedsPlaybackGesture(false);
-      const voices = selectedEngine.getVoices();
-      const chosenName = (options.voiceURI ? voices.find((voice) => voice.voiceURI === options.voiceURI) : voices[0])?.name;
-      if (bundledFallback) {
-        setNotice("A voz local em português do Brasil está indisponível. Usando a gravação de " +
-          (voices[0]?.name ?? "português do Brasil") + ".");
+      if (!useDevice || options.voiceURI !== LOCAL_SPEECH_VOICE) {
+        setDeviceVoiceAvailable(deviceEngine.getVoices().length > 0);
+        setRecovery("synthesis");
       } else {
-        setNotice(localVoice && !localPreferred
-          ? `A voz ${chosenName ?? "configurada"} está indisponível para este texto. Usando a voz local ${localVoice.name} (português do Brasil).`
-          : null);
+        attempt.current = null;
       }
+      if (!useDevice) reportNeuralFailure(reason === "failed" || reason === "not-allowed"
+        ? runtimeFailure ? "runtime" : "playback" : reason);
+      setError(useDevice
+        ? "Não foi possível reproduzir a voz do dispositivo. Confira as configurações de som."
+        : reason === "local-model" || reason === "local-timeout"
+          ? "Não foi possível carregar a voz neural local. Verifique a conexão para baixar o modelo e tente novamente."
+          : "Não foi possível gerar ou reproduzir a voz neural local. Tente repetir a síntese.");
+    };
+    setSpeaking(true);
+    setPreparing(!useDevice);
+    const failedToStart = () => onError("failed", true);
+    try {
+      const playback = target.speak(text, localVoice
+        ? { ...options, voiceURI: localVoice.voiceURI }
+        : options, {
+        onStart: onPlaybackStart,
+        onEnd,
+        onError,
+      });
+      if (playback) void Promise.resolve(playback).catch(failedToStart);
+    } catch {
+      failedToStart();
+    }
+  }, [cancelPlayback, deviceEngine, selectedEngine, setRecovery, supported]);
 
-      let started = false;
-      const onPlaybackStart = () => {
-        if (generation.current !== request || started) return;
-        started = true;
-        onStart?.();
-      };
-      const onEnd = () => {
-        if (generation.current !== request) return;
-        setSpeaking(false);
-        setNeedsPlaybackGesture(false);
-      };
-      const onError = (reason: SpeechFailure) => {
-        if (generation.current !== request) return;
-        setSpeaking(false);
-        if (reason === "canceled" || reason === "interrupted") return;
-        setNeedsPlaybackGesture(
-          !useDevice && reason === "not-allowed" && Boolean(selectedEngine.retryPlayback),
-        );
-        setError(
-          reason === "not-allowed" && !useDevice
-            ? "O áudio está pronto. Toque em Ouvir áudio pronto para reproduzir."
-            : useDevice || options.offlineOnly
-              ? "Não foi possível reproduzir o áudio neste dispositivo. Confira as configurações de som."
-              : "Não foi possível gerar ou reproduzir a voz. Verifique a conexão e se o serviço de voz está disponível.",
-        );
-      };
-      setSpeaking(true);
-      const failedToStart = () => {
-        if (generation.current !== request) return;
-        setSpeaking(false);
-        setNeedsPlaybackGesture(false);
-        setError(
-          "Não foi possível iniciar a leitura. Confira o áudio do dispositivo e tente novamente.",
-        );
-      };
-      try {
-        // Start the request immediately; the engine plays the returned Blob
-        // without a second download or a media-readiness event barrier.
-        const playback = (useDevice ? deviceEngine : selectedEngine).speak(message, localVoice
-          ? { ...options, voiceURI: localVoice.voiceURI }
-          : bundledFallback ?? options, {
-          onStart: onPlaybackStart,
-          onEnd,
-          onError,
-        });
-        if (playback) void Promise.resolve(playback).catch(failedToStart);
-      } catch {
-        failedToStart();
-      }
-    },
-    [deviceEngine, selectedEngine, stop, supported],
-  );
+  const speak = useCallback((text: string, { onStart, ...options }: PlaybackOptions = {}) => {
+    const message = text.trim();
+    if (!message) return;
+    let started = false;
+    start({ text: message, options, notifyStart: () => {
+      if (started) return;
+      started = true;
+      onStart?.();
+    } }, options.voiceURI === LOCAL_SPEECH_VOICE);
+  }, [start]);
+
+  const retrySynthesis = useCallback(() => {
+    if (recovery?.action === "synthesis" && activeRecovery.current === recovery && attempt.current) {
+      start(attempt.current, false);
+    }
+  }, [recovery, start]);
+
+  const fallbackToDevice = useCallback(() => {
+    if (recovery?.action === "synthesis" && activeRecovery.current === recovery && attempt.current) {
+      start(attempt.current, true);
+    }
+  }, [recovery, start]);
 
   const retryPlayback = useCallback(() => {
-    if (!needsPlaybackGesture || !selectedEngine.retryPlayback) return;
+    if (recovery?.action !== "audio-ready" || activeRecovery.current !== recovery ||
+        !attempt.current || !selectedEngine.retryPlayback) return;
     const request = generation.current;
     setError(null);
-    setNeedsPlaybackGesture(false);
+    setRecovery(null);
     setSpeaking(true);
     const failed = () => {
       if (generation.current !== request) return;
+      generation.current += 1;
+      selectedEngine.cancel();
       setSpeaking(false);
-      setError(
-        "Não foi possível reproduzir o áudio. Selecione o símbolo novamente.",
-      );
+      setRecovery("synthesis");
+      setDeviceVoiceAvailable(deviceEngine.getVoices().length > 0);
+      reportNeuralFailure("playback");
+      setError("Não foi possível reproduzir o áudio. Tente repetir a síntese.");
     };
     try {
-      // Replay the already generated MP3 during this new user gesture; no fetch.
+      // Replay the existing audio directly during this gesture, without synthesis.
       const playback = selectedEngine.retryPlayback();
       if (playback) void Promise.resolve(playback).catch(failed);
     } catch {
       failed();
     }
-  }, [needsPlaybackGesture, selectedEngine]);
+  }, [deviceEngine, recovery, selectedEngine, setRecovery]);
 
   return {
     supported,
     voices,
     speaking,
+    preparing,
     error,
     notice,
     speak,
     stop,
-    needsPlaybackGesture,
+    needsPlaybackGesture: recovery?.action === "audio-ready",
     retryPlayback,
+    canRetrySynthesis: recovery?.action === "synthesis",
+    retrySynthesis,
+    canFallbackToDevice: recovery?.action === "synthesis" && deviceVoiceAvailable,
+    fallbackToDevice,
     prefetch,
     prepareSentence,
   };

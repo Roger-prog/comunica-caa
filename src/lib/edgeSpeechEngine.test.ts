@@ -10,6 +10,11 @@ import {
 import { createEdgeSpeechEngine } from "./edgeSpeechEngine";
 import type { SpeechCallbacks, SpeechEngine } from "./speechEngine";
 
+const neural = vi.hoisted(() => ({ synthesize: vi.fn() }));
+vi.mock("./localNeuralProvider", () => ({
+  synthesizeLocalNeural: neural.synthesize,
+}));
+
 let audios: MockAudio[];
 let playBehavior: () => Promise<void>;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -65,7 +70,7 @@ function response(bytes = 12, overrides: Partial<Response> = {}): Response {
 }
 
 function engine(
-  endpoint?: string,
+  endpoint?: string | null,
   bundledAudio: (text: string, voice: string) => Blob | undefined = () => undefined,
   localPhrases?: Parameters<typeof createEdgeSpeechEngine>[2],
 ) {
@@ -79,6 +84,7 @@ beforeEach(() => {
   engines = [];
   playBehavior = () => Promise.resolve();
   fetchMock = vi.fn(async () => response());
+  neural.synthesize.mockReset().mockResolvedValue(new Blob(["RIFF-test"], { type: "audio/wav" }));
   createUrl = vi.fn<(blob: Blob | MediaSource) => string>(
     () => `blob:tts-${createUrl.mock.calls.length}`,
   );
@@ -106,6 +112,56 @@ afterEach(() => {
 });
 
 describe("edgeSpeechEngine", () => {
+  it("uses the configured local model for all text, instead of a matching legacy recording", async () => {
+    const legacyAudio = vi.fn(() => new Blob(["ID3"], { type: "audio/mpeg" }));
+    const voice = engine(null, legacyAudio);
+    const events = callbacks();
+    const options = { voiceURI: "pt_BR-edresson-low", rate: 0.8, offlineOnly: true };
+    expect(voice.canPlayOffline?.("Água", options)).toBe(true);
+    await voice.speak("Água", options, events);
+    expect(neural.synthesize).toHaveBeenCalledExactlyOnceWith(
+      "Água", "pt_BR-edresson-low", 0.8, expect.any(AbortSignal),
+    );
+    expect(legacyAudio).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(audios[0].playbackRate).toBe(1);
+    expect(events.onStart).toHaveBeenCalledOnce();
+
+    await voice.speak("Água", options, callbacks());
+    expect(neural.synthesize).toHaveBeenCalledOnce();
+    voice.clearCache?.();
+    await voice.speak("Água", { offlineOnly: true }, callbacks());
+    expect(neural.synthesize).toHaveBeenLastCalledWith(
+      "Água", "pt_BR-faber-medium", 1, expect.any(AbortSignal),
+    );
+  });
+
+  it("plays every chunk of a long message in order and starts history once", async () => {
+    const voice = engine(null);
+    const events = callbacks();
+    const message = Array.from({ length: 49 }, (_, number) => "palavra" + number).join(" ");
+    await voice.speak(message, { voiceURI: "pt_BR-faber-medium", rate: 1.2 }, events);
+    expect(neural.synthesize).toHaveBeenCalledOnce();
+    expect(events.onStart).toHaveBeenCalledOnce();
+    for (let index = 0; index < 4 && !events.onEnd.mock.calls.length; index++) {
+      audios[0].onended?.();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(events.onEnd).toHaveBeenCalledOnce();
+    expect(events.onStart).toHaveBeenCalledOnce();
+    expect(neural.synthesize.mock.calls.map(([text]) => text).join(" ")).toBe(message);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not transmit uncached legacy voice requests in the on-device app", async () => {
+    const voice = engine(null);
+    const events = callbacks();
+    await voice.speak("Texto novo", { voiceURI: "pt-BR-AntonioNeural" }, events);
+    expect(events.onError).toHaveBeenCalledExactlyOnceWith("failed");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(neural.synthesize).not.toHaveBeenCalled();
+  });
+
   it("plays a prepared board phrase synchronously without HTTP and preserves symbol order", async () => {
     const clip = new Blob(["ID3word"], { type: "audio/mpeg" });
     const wav = new Blob(["RIFFphrase"], { type: "audio/wav" });
@@ -493,10 +549,12 @@ describe("edgeSpeechEngine", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
-  it("offers the two Brazilian neural voices and posts a bounded payload", async () => {
+  it("lists both local and recorded voices and bounds explicit HTTP synthesis", async () => {
     const voice = engine("https://voice.example.test/api/tts");
     expect(voice.supported).toBe(true);
     expect(voice.getVoices().map((item) => item.voiceURI)).toEqual([
+      "pt_BR-faber-medium",
+      "pt_BR-edresson-low",
       "pt-BR-FranciscaNeural",
       "pt-BR-AntonioNeural",
     ]);

@@ -132,6 +132,11 @@ export function CreditsPage() {
           <a className="button-secondary" href="https://arasaac.org/terms-of-use">Termos do ARASAAC</a>
           <a className="button-secondary" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">Licença CC BY-NC-SA</a>
         </div>
+        <section className="mt-8 border-t border-stone-200 pt-6" aria-labelledby="local-voice-credits">
+          <h2 id="local-voice-credits" className="text-xl font-semibold">Vozes neurais locais</h2>
+          <p className="mt-3 leading-7 text-stone-700">As vozes Faber e Edresson usam modelos do projeto Piper.</p>
+          <a className="button-secondary mt-4" href="/piper-credits.txt">Créditos e licenças das vozes</a>
+        </section>
       </article>
     </PublicLayout>
   );
@@ -212,8 +217,9 @@ export function PrivacyPage() {
           </p>
           <p>
             A busca no ARASAAC envia apenas termos escolhidos do vocabulário
-            público. A prancha usa gravações incluídas ou uma voz local para
-            ler símbolos e frases, sem enviar esses textos a um serviço de voz.
+            público. A prancha usa gravações incluídas ou gera a voz no
+            dispositivo. O primeiro uso pode baixar arquivos do modelo de voz.
+            O texto falado fica no dispositivo durante a síntese.
             Os relatórios PDF são preparados no navegador e baixados no
             dispositivo de quem os exporta.
           </p>

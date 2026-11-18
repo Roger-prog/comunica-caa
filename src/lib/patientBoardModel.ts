@@ -1,4 +1,5 @@
 import quickPhrases from "../data/default-quick-phrases.json";
+import { LOCAL_NEURAL_VOICES } from "./localNeuralVoices";
 import { LOCAL_SPEECH_VOICE } from "./speechEngine";
 
 export type BoardQuickPhrase = { id: string; label: string; text: string };
@@ -136,7 +137,7 @@ export function normalizeBoardSettings(value: Partial<BoardSettings>): BoardSett
     favorites: strings(source.favorites, 256),
     homeSymbols: Array.isArray(source.homeSymbols) ? strings(source.homeSymbols, 36) : null,
     symbolOrder: order,
-    voiceURI: option(source.voiceURI, ["", "pt-BR-FranciscaNeural", "pt-BR-AntonioNeural", LOCAL_SPEECH_VOICE], ""),
+    voiceURI: option(source.voiceURI, ["", ...LOCAL_NEURAL_VOICES.map((voice) => voice.voiceURI), "pt-BR-FranciscaNeural", "pt-BR-AntonioNeural", LOCAL_SPEECH_VOICE], ""),
     rate: typeof source.rate === "number" && source.rate >= 0.5 && source.rate <= 1.5 ? source.rate : 1,
     speakOnSelect: source.speakOnSelect !== false,
     historyRecording: source.historyRecording !== false,

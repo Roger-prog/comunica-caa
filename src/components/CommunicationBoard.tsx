@@ -16,6 +16,7 @@ import { hasBundledSpeech } from "../data/bundledSpeech";
 import type { useSpeech } from "../hooks/useSpeech";
 import { DEFAULT_BOARD_SETTINGS, type BoardQuickPhrase, type BoardSettings } from "../lib/patientBoardModel";
 import { PictogramPicture } from "./PictogramPicture";
+import { SpeechFeedback } from "./SpeechFeedback";
 
 interface CommunicationBoardProps {
   onSelect: (pictogram: Pictogram) => void;
@@ -256,9 +257,6 @@ export function CommunicationBoard({
           {speech.speaking && <button type="button" className="board-control" onClick={speech.stop}>
             <Square size={15} aria-hidden="true" /> Parar áudio
           </button>}
-          {speech.needsPlaybackGesture && <button type="button" className="board-control" onClick={speech.retryPlayback}>
-            <Volume2 size={18} aria-hidden="true" /> Ouvir áudio pronto
-          </button>}
           {isChildMode && <button type="button" onClick={onUnlockRequest}
             aria-label="Sair do modo comunicação"
             className="board-control ml-auto">
@@ -280,8 +278,7 @@ export function CommunicationBoard({
         {!speech.supported && <p className="mt-2 text-sm text-stone-600">
           A leitura em voz alta está indisponível. Os símbolos continuam acessíveis.
         </p>}
-        {speech.notice && <p role="status" className="mt-2 rounded-xl bg-brand-50 p-3 text-sm text-brand-800">{speech.notice}</p>}
-        {speech.error && <p role="alert" className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-800">{speech.error}</p>}
+        <SpeechFeedback speech={speech} compact />
       </section>
 
       <section aria-labelledby="symbols-title" className="space-y-2">

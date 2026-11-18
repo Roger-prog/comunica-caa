@@ -50,6 +50,8 @@ import { PatientBoardPanel } from "./components/PatientBoardPanel";
 import { HistoryControls } from "./components/HistoryControls";
 import { applyPatientBoard } from "./lib/boardPresentation";
 import { usePatientBoard } from "./lib/patientBoard";
+import { DEFAULT_LOCAL_NEURAL_VOICE } from "./lib/localNeuralVoices";
+import { SpeechFeedback } from "./components/SpeechFeedback";
 import { LOCAL_SPEECH_VOICE } from "./lib/speechEngine";
 
 const ProfessionalDashboard = lazy(() =>
@@ -296,7 +298,6 @@ function Workspace({
     preview,
     canManageChildren,
   );
-  const speech = useSpeech();
   const { isChildMode } = childMode;
   const requestedPath = location.pathname
     .slice(routePrefix.length)
@@ -317,7 +318,7 @@ function Workspace({
     Boolean(patientId && !patientBoard.board);
   const boardVoice = savedSettings?.voiceURI ?? preferences.voiceURI;
   const boardRate = savedSettings?.rate ?? preferences.rate;
-  const stopSpeech = speech.stop;
+  const speech = useSpeech(undefined, `${view}/${workspace.selectedId}/${boardVoice}/${boardRate}`);
   const [showChildForm, setShowChildForm] = useState(false);
   const [childName, setChildName] = useState("");
   const [childError, setChildError] = useState<string | null>(null);
@@ -339,8 +340,6 @@ function Workspace({
     document.getElementById("main-content")?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [view, isChildMode]);
-
-  useEffect(() => () => stopSpeech(), [workspace.selectedId, stopSpeech]);
 
   useEffect(() => {
     if (showChildForm) document.getElementById("child-name")?.focus();
@@ -896,7 +895,7 @@ function Workspace({
                     <select
                       id="voice"
                       className="input-field"
-                      value={preferences.voiceURI}
+                      value={preferences.voiceURI || DEFAULT_LOCAL_NEURAL_VOICE}
                       onChange={(event) =>
                         setPreferences({
                           ...preferences,
@@ -904,7 +903,6 @@ function Workspace({
                         })
                       }
                     >
-                      <option value="">Francisca · padrão</option>
                       <option value={LOCAL_SPEECH_VOICE}>Voz local do dispositivo (pt-BR)</option>
                       {speech.voices.map((voice) => (
                         <option key={voice.voiceURI} value={voice.voiceURI}>
@@ -944,24 +942,7 @@ function Workspace({
                       <Volume2 size={18} aria-hidden="true" />
                       Testar voz
                     </button>
-                    {speech.notice && (
-                      <p role="status" className="mt-3 text-sm text-brand-800">{speech.notice}</p>
-                    )}
-                    {speech.error && (
-                      <p role="alert" className="mt-3 text-sm text-red-800">
-                        {speech.error}
-                      </p>
-                    )}
-                    {speech.needsPlaybackGesture && (
-                      <button
-                        type="button"
-                        className="button-primary mt-3"
-                        onClick={speech.retryPlayback}
-                      >
-                        <Volume2 size={18} aria-hidden="true" />
-                        Ouvir áudio pronto
-                      </button>
-                    )}
+                    <SpeechFeedback speech={speech} />
                   </section>
                   <section
                     className="surface p-6"
@@ -1040,7 +1021,7 @@ function Workspace({
                 <p className="text-xs leading-5 text-stone-500">
                   Preferências de voz e tamanho são salvas somente neste
                   navegador. Dependendo da voz escolhida e do texto, a prancha
-                  usa os áudios incluídos ou uma voz local em português do Brasil.
+                  usa os áudios incluídos ou gera a fala no seu dispositivo em português do Brasil.
                 </p>
               )}
             </div>

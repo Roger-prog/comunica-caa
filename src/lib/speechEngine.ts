@@ -15,7 +15,8 @@ export interface SpeechVoice {
 }
 
 export type SpeechFailure =
-  "canceled" | "interrupted" | "not-allowed" | "failed";
+  "canceled" | "interrupted" | "not-allowed" | "failed"
+  | "local-model" | "local-inference" | "local-timeout";
 
 export interface SpeechCallbacks {
   onStart?: () => void;

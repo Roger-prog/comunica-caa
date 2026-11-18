@@ -115,18 +115,14 @@ describe("useSpeech", () => {
     expect(result.current.voices).toEqual([brazilianVoice]);
   });
 
-  it("plays private text with a local Brazilian voice and refuses a cloud-only voice", () => {
+  it("tries neural synthesis for a private utterance without automatically selecting the browser voice", () => {
     const { result } = renderHook(() => useSpeech());
     const privateText = "Minha mensagem pessoal";
-    act(() => result.current.speak(privateText, { offlineOnly: true }));
-    expect(synthesis.speak.mock.calls[0][0]).toMatchObject({ text: privateText, voice: brazilianVoice });
-    expect(neuralEngine.speak).not.toHaveBeenCalled();
-    synthesis.speak.mockClear();
     synthesis.getVoices.mockReturnValue([{ ...brazilianVoice, localService: false }]);
     act(() => result.current.speak(privateText, { offlineOnly: true }));
+    expect(neuralEngine.speak).toHaveBeenCalledExactlyOnceWith(privateText, { offlineOnly: true }, expect.any(Object));
     expect(synthesis.speak).not.toHaveBeenCalled();
-    expect(neuralEngine.speak).not.toHaveBeenCalled();
-    expect(result.current.error).toContain("voz local em português do Brasil");
+    expect(result.current.error).toBeNull();
   });
 
   it("uses the selected local Brazilian voice uniformly and reports only a real start", () => {
@@ -145,13 +141,17 @@ describe("useSpeech", () => {
     expect(neuralEngine.speak).not.toHaveBeenCalled();
   });
 
-  it("reports a Brazilian device fallback when a configured neural recording is unavailable offline", () => {
-    const { result } = renderHook(() => useSpeech());
+  it("requires an explicit device playback request when a legacy neural recording is unavailable", () => {
+    const engine = { ...neuralEngine, canPlayOffline: vi.fn(() => false) };
+    const { result } = renderHook(() => useSpeech(engine));
     act(() => result.current.speak("Palavra privada", {
       offlineOnly: true, voiceURI: "pt-BR-AntonioNeural", rate: 1.2,
     }));
+    expect(synthesis.speak).not.toHaveBeenCalled();
+    expect(result.current.error).toContain("Escolha uma voz neural local");
+    expect(result.current.canFallbackToDevice).toBe(true);
+    act(() => result.current.fallbackToDevice());
     expect(synthesis.speak.mock.lastCall?.[0]).toMatchObject({ voice: brazilianVoice, rate: 1.2 });
-    expect(result.current.notice).toContain("Antônio");
     expect(result.current.notice).toContain(brazilianVoice.name);
     expect(neuralEngine.speak).not.toHaveBeenCalled();
   });
@@ -168,19 +168,16 @@ describe("useSpeech", () => {
     expect(result.current.notice).toBeNull();
   });
 
-  it("uses a bundled Portuguese recording if the selected device voice is temporarily unavailable", () => {
+  it("keeps an explicitly selected device voice when its local Brazilian model is unavailable", () => {
     synthesis.getVoices.mockReturnValue([englishVoice]);
     const engine = { ...neuralEngine, canPlayOffline: vi.fn((text) => text === "Água") };
     const { result } = renderHook(() => useSpeech(engine));
     act(() => result.current.speak("Água", { voiceURI: "local-pt-BR", rate: 0.8, offlineOnly: true }));
-    expect(engine.speak).toHaveBeenCalledExactlyOnceWith("Água", {
-      voiceURI: undefined, rate: 0.8, offlineOnly: true,
-    }, expect.any(Object));
+    expect(engine.speak).not.toHaveBeenCalled();
     expect(synthesis.speak).not.toHaveBeenCalled();
-    expect(result.current.notice).toContain("A voz local em português do Brasil está indisponível");
-    act(() => result.current.speak("Texto privado", { voiceURI: "local-pt-BR", offlineOnly: true }));
-    expect(engine.speak).toHaveBeenCalledOnce();
     expect(result.current.error).toContain("habilite uma voz local");
+    expect(result.current.canRetrySynthesis).toBe(false);
+    expect(result.current.canFallbackToDevice).toBe(false);
   });
 
   it("waits for a local Brazilian voice instead of using the browser default", () => {
@@ -254,9 +251,7 @@ describe("useSpeech", () => {
     const { result } = renderHook(() => useSpeech(engine));
     await act(async () => result.current.speak("Olá"));
     expect(result.current.speaking).toBe(false);
-    expect(result.current.error).toContain(
-      "Não foi possível iniciar a leitura",
-    );
+    expect(result.current.error).toContain("Não foi possível gerar ou reproduzir a voz neural local");
     expect(result.current.error).not.toContain("private_backend_diagnostic");
   });
 
@@ -286,13 +281,11 @@ describe("useSpeech", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("uses the neural API engine by default without browser speech APIs", () => {
+  it("uses the local neural engine by default without browser speech APIs", () => {
     vi.stubGlobal("SpeechSynthesisUtterance", undefined);
     const { result } = renderHook(() => useSpeech());
 
-    expect(createEdgeSpeechEngineMock).toHaveBeenCalledExactlyOnceWith(
-      "/api/tts",
-    );
+    expect(createEdgeSpeechEngineMock).toHaveBeenCalledExactlyOnceWith(null);
     expect(result.current.supported).toBe(true);
     expect(result.current.voices).toEqual(neuralVoices);
     expect(result.current.voices.every((voice) => voice.lang === "pt-BR")).toBe(
@@ -307,12 +300,75 @@ describe("useSpeech", () => {
     expect(synthesis.speak).not.toHaveBeenCalled();
   });
 
-  it("uses the configured neural endpoint when provided", () => {
+  it("disables network synthesis even if a legacy neural endpoint is configured", () => {
     vi.stubEnv("VITE_TTS_API_URL", "/api/neural-voice");
     renderHook(() => useSpeech());
-    expect(createEdgeSpeechEngineMock).toHaveBeenCalledExactlyOnceWith(
-      "/api/neural-voice",
-    );
+    expect(createEdgeSpeechEngineMock).toHaveBeenCalledExactlyOnceWith(null);
+  });
+
+  it("deduplicates speech start across a synthesis retry or one-time device fallback", () => {
+    const callbacks: SpeechCallbacks[] = [];
+    const engine = {
+      ...neuralEngine,
+      speak: vi.fn((_text, _options, events: SpeechCallbacks) => { callbacks.push(events); }),
+    };
+    const { result } = renderHook(() => useSpeech(engine));
+    const onStart = vi.fn();
+    const opts = { voiceURI: "pt_BR-edresson-low", rate: 0.7, offlineOnly: true };
+    act(() => result.current.speak("Mais água", { ...opts, onStart }));
+    expect(result.current.preparing).toBe(true);
+    act(() => callbacks[0].onError("failed"));
+    expect(result.current.preparing).toBe(false);
+    expect(result.current.canRetrySynthesis).toBe(true);
+    expect(onStart).not.toHaveBeenCalled();
+    expect(synthesis.speak).not.toHaveBeenCalled();
+
+    act(() => result.current.retrySynthesis());
+    expect(engine.speak).toHaveBeenCalledTimes(2);
+    expect(engine.speak).toHaveBeenLastCalledWith("Mais água", opts, expect.any(Object));
+    act(() => callbacks[0].onStart?.());
+    expect(onStart).not.toHaveBeenCalled();
+    act(() => callbacks[1].onStart?.());
+    expect(result.current.preparing).toBe(false);
+    expect(onStart).toHaveBeenCalledOnce();
+
+    act(() => callbacks[1].onError("failed"));
+    act(() => result.current.fallbackToDevice());
+    const installedVoice = synthesis.speak.mock.lastCall?.[0] as MockUtterance;
+    expect(installedVoice).toMatchObject({ text: "Mais água", voice: brazilianVoice, rate: 0.7 });
+    act(() => installedVoice.onstart?.());
+    expect(onStart).toHaveBeenCalledOnce();
+  });
+
+  it("invalidates pending speech, retry and cached audio when the playback scope changes", () => {
+    const callbacks: SpeechCallbacks[] = [];
+    const engine = {
+      ...neuralEngine,
+      clearCache: vi.fn(),
+      speak: vi.fn((_text, _options, events: SpeechCallbacks) => { callbacks.push(events); }),
+    };
+    const { result, rerender } = renderHook(({ scope }) => useSpeech(engine, scope), {
+      initialProps: { scope: "first-profile" },
+    });
+    const onStart = vi.fn();
+    act(() => result.current.speak("Primeiro", { onStart }));
+    act(() => callbacks[0].onError("failed"));
+    expect(result.current.canRetrySynthesis).toBe(true);
+    const staleRetry = result.current.retrySynthesis;
+    rerender({ scope: "second-profile" });
+    expect(engine.clearCache).toHaveBeenCalledOnce();
+    expect(result.current.error).toBeNull();
+    act(() => { staleRetry(); callbacks[0].onStart?.(); });
+    expect(engine.speak).toHaveBeenCalledOnce();
+    expect(onStart).not.toHaveBeenCalled();
+
+    act(() => result.current.speak("Segundo", { onStart }));
+    expect(result.current.preparing).toBe(true);
+    rerender({ scope: "second-profile:other-voice" });
+    act(() => { callbacks[1].onStart?.(); callbacks[1].onError("failed"); });
+    expect(result.current.preparing).toBe(false);
+    expect(result.current.canRetrySynthesis).toBe(false);
+    expect(onStart).not.toHaveBeenCalled();
   });
 
   it("retries prepared audio synchronously during a new gesture without synthesizing again", async () => {

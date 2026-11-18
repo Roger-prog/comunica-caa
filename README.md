@@ -16,13 +16,11 @@ Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A a
 
 ## Voz e reprodução
 
-- Vozes neurais em português do Brasil: Francisca e Antônio.
-- Gravações incluídas para 42 símbolos, entre vocabulário original, essencial e de saúde.
-- Preparação da frase durante a composição quando todos os símbolos têm áudio incluído.
-- Pausas curtas entre as palavras e reaproveitamento dos áudios já preparados.
-- Ajuste de velocidade com preservação do tom da voz.
-- Voz local em português do Brasil para símbolos e frases, com aviso quando a leitura utiliza uma voz diferente da escolhida.
-- Reprodução dos áudios incluídos e síntese da voz local no dispositivo.
+- Síntese neural no dispositivo com Faber e Edresson em português do Brasil, para símbolos do catálogo, símbolos personalizados e frases.
+- Gravações incluídas de Francisca e Antônio para parte do vocabulário e para as frases rápidas padrão.
+- Preferências de voz e velocidade por perfil.
+- Reaproveitamento dos áudios gerados durante a sessão.
+- Voz do dispositivo disponível por escolha do usuário.
 
 ## Perfis e acompanhamento
 
