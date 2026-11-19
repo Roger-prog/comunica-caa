@@ -2,6 +2,12 @@
 
 Comunica é um sistema web de Comunicação Aumentativa e Alternativa (CAA). A aplicação permite expressar necessidades, sentimentos e escolhas por meio de símbolos, composição de frases e leitura em voz alta.
 
+## Desenvolvimento
+
+O frontend usa React 19, TypeScript, Vite e Tailwind CSS 4. O Supabase fornece autenticação, banco e armazenamento. As funções em `api/` atendem fotos e pictogramas.
+
+Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm run dev:demo`. Para o ambiente real, configure `.env.local` a partir de `.env.example` e execute `npm run dev`. Use `npm run check` para validar tipos, testes, políticas de acesso e build. Consulte [o guia de publicação](PUBLICAR_SITE.md) para configurar a Vercel.
+
 ## Prancha de comunicação
 
 - 418 entradas reunindo o vocabulário de CAA, os símbolos originais e os grupos de apoio à teleconsulta.
