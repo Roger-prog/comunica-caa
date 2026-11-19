@@ -1,21 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
-import {
-  Activity,
-  ArrowLeft,
-  Check,
-  ChevronRight,
-  Clock3,
-  Grid2X2,
-  LoaderCircle,
-  LogOut,
-  MessageCircle,
-  Plus,
-  Settings2,
-  ShieldCheck,
-  Volume2,
-  X,
-  Stethoscope,
-} from "lucide-react";
+import { lazy, Suspense, useEffect } from "react";
+import { LoaderCircle } from "lucide-react";
 import { Login } from "./auth/Login";
 import { Cadastro } from "./auth/Cadastro";
 import { EsqueciSenha } from "./auth/EsqueciSenha";
@@ -32,7 +16,6 @@ import {
 import { useAuth } from "./auth/AuthProvider";
 import { PrivateRoute } from "./auth/PrivateRoute";
 import {
-  Link,
   Navigate,
   Route,
   Routes,
