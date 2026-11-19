@@ -102,7 +102,7 @@ async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
 
 function initializeSupabase() {
   const prefix = "[Comunica/Supabase]";
-  console.log(`${prefix} Configuração do build`, {
+  if (import.meta.env.DEV) console.log(`${prefix} Configuração do build`, {
     diagnosticVersion: 1,
     mode: import.meta.env.MODE,
     urlDefined: Boolean(url),
@@ -111,7 +111,7 @@ function initializeSupabase() {
     keySource,
   });
   if (isMockAuthMode()) {
-    console.log(`${prefix} Inicialização`, { status: "demo_mode" });
+    if (import.meta.env.DEV) console.log(`${prefix} Inicialização`, { status: "demo_mode" });
     return { client: null, error: null };
   }
   try {
@@ -132,7 +132,7 @@ function initializeSupabase() {
       },
       global: { fetch: fetchWithTimeout },
     });
-    console.log(`${prefix} Inicialização`, { status: "initialized" });
+    if (import.meta.env.DEV) console.log(`${prefix} Inicialização`, { status: "initialized" });
     return { client, error: null };
   } catch {
     // Do not log the SDK error: it may contain the URL, API key or a token.
