@@ -4,6 +4,7 @@
 @import "@fontsource/atkinson-hyperlegible/latin-700.css";
 
 @theme static {
+  --color-stone-500: #665f59;
   --color-paper: #fbf7f0;
   --color-brand: #14464a;
   --color-accent: #e4572e;

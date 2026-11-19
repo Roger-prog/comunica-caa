@@ -170,4 +170,3 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-

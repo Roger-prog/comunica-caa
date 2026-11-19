@@ -45,7 +45,7 @@ export function AuthLayout({
         </header>
         <div className="grid flex-1 items-center gap-12 py-10 lg:grid-cols-[1.05fr_1fr] lg:gap-20">
           <section aria-labelledby="welcome-title" className="order-2 max-w-lg lg:order-1">
-            
+
             <h1
               id="welcome-title"
               className="text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl"

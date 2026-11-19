@@ -276,7 +276,7 @@ export default function Workspace({
                 </span>
               </div>
             </a>
-            
+
             <nav
               aria-label="Navegação principal"
               className="grid auto-cols-fr grid-flow-col gap-1 lg:flex lg:flex-col lg:gap-2"
@@ -453,7 +453,7 @@ export default function Workspace({
                 </div>
               )}
               {view === "board" ? <h1 className="sr-only">{active.title}</h1> : <div className="mb-7">
-                
+
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-[34px]">
                   {active.title}
                 </h1>
