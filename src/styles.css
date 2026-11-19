@@ -3,7 +3,7 @@
 @import "@fontsource/atkinson-hyperlegible/latin-400.css";
 @import "@fontsource/atkinson-hyperlegible/latin-700.css";
 
-@theme {
+@theme static {
   --color-paper: #fbf7f0;
   --color-brand: #14464a;
   --color-accent: #e4572e;
@@ -158,4 +158,15 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   .button-primary, .board-control-active, .bg-brand-600.text-white, .bg-brand-700.text-white { color: #132626; }
   :focus-visible { outline-color: #edb76c; }
   .board-contrast { background: white; color: black; --color-white: white; --color-stone-700: black; --color-ink: black; }
+}
+.communication-mode button { min-width: 48px; min-height: 48px; }
+
+.demo-board { border-top: 6px solid var(--color-brand); }
+.demo-word { font-weight: 700; }
+.hero-copy h1 { text-wrap: balance; }
+.hero-copy::before { content: ""; display: block; width: 4rem; height: .38rem; background: var(--color-accent); }
+@media (min-width: 850px) {
+  .public-hero { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 3rem; }
+  .public-hero .demo-board { margin-top: 0; }
+  .public-hero .demo-word { flex: 1 1 25%; }
 }

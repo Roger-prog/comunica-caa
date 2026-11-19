@@ -1,11 +1,9 @@
 import { DemoBoard } from "../components/DemoBoard";
 import type { ReactNode } from "react";
 import {
-  HeartHandshake,
   LoaderCircle,
   MessageCircle,
   ShieldCheck,
-  Volume2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { AccountRole } from "./authTypes";
@@ -46,7 +44,7 @@ export function AuthLayout({
           </Link>
         </header>
         <div className="grid flex-1 items-center gap-12 py-10 lg:grid-cols-[1.05fr_1fr] lg:gap-20">
-          <section aria-labelledby="welcome-title" className="max-w-lg">
+          <section aria-labelledby="welcome-title" className="order-2 max-w-lg lg:order-1">
             
             <h1
               id="welcome-title"
@@ -65,7 +63,7 @@ export function AuthLayout({
           <section
             id="auth-form"
             aria-labelledby="auth-title"
-            className="surface min-w-0 rounded-2xl p-6 shadow-[4px_4px_0_var(--color-brand)] sm:p-9"
+            className="surface order-1 lg:order-2 min-w-0 rounded-2xl p-6 shadow-[4px_4px_0_var(--color-brand)] sm:p-9"
           >
             <h2
               id="auth-title"

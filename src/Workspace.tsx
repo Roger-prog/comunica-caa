@@ -1,3 +1,4 @@
+import { AccountOptions } from "./components/AccountOptions";
 import { rolesForPath } from "./auth/authRouting";
 import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
@@ -18,7 +19,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { useAuth } from "./auth/AuthProvider";
-import { Link, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { CommunicationBoard } from "./components/CommunicationBoard";
 import { ChildModePinDialog } from "./components/ChildModePinDialog";
 import { Evolution, History } from "./components/ActivityViews";
@@ -243,7 +244,7 @@ export default function Workspace({
     <div
       className={
         isChildMode
-          ? "min-h-dvh bg-paper"
+          ? "min-h-dvh bg-paper communication-mode"
           : "min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]" + (view === "board" ? " workspace-board" : "")
       }
     >
@@ -819,6 +820,7 @@ export default function Workspace({
                   {canManageChildren ? "Conta e perfis" : "Conta profissional"}
                 </h2>
                 <p className="font-medium">{displayName}</p>
+                {user && !preview && <AccountOptions key={user.id} user={user} signOut={signOut} />}
                 {user && (
                   <p className="mt-1 break-all text-sm text-stone-500">
                     {user.email}

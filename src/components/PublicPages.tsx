@@ -1,6 +1,6 @@
 import { DemoBoard } from "./DemoBoard";
 import type { ReactNode } from "react";
-import { ArrowRight, MessageCircle, ShieldCheck, Volume2 } from "lucide-react";
+import { ArrowRight, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export const PUBLIC_CONTACT = {
@@ -53,7 +53,8 @@ function PublicLayout({ children }: { children: ReactNode }) {
 export function AboutPage() {
   return (
     <PublicLayout>
-      <section aria-labelledby="about-title">
+      <section className="public-hero" aria-labelledby="about-title">
+        <div className="hero-copy">
         
         <h1 id="about-title" className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
           Símbolos e voz para comunicar escolhas.
@@ -70,8 +71,9 @@ export function AboutPage() {
           </Link>
           <Link to="/login" className="button-secondary">Acessar o Comunica</Link>
         </div>
+        </div>
+        <DemoBoard />
       </section>
-      <DemoBoard />
       <section className="mt-10 space-y-3">
         <h2 className="text-3xl">Cores que ajudam a montar frases</h2>
         <p>Pessoas em amarelo, ações em verde, coisas em laranja, adjetivos em azul e expressões sociais em rosa. Na prancha acima, experimente formar “Eu quero água gelada, por favor”.</p>
@@ -145,6 +147,9 @@ export function PrivacyPage() {
           contas, disponibilizar a prancha de comunicação e permitir o acompanhamento
           dos perfis cadastrados.
         </p>
+        <PrivacySection title="Áudio de pronúncia e Libras">
+          <p>As gravações de pronúncia ficam temporariamente no dispositivo. Ao abrir o intérprete de Libras, a frase escolhida fica disponível ao serviço VLibras para tradução.</p>
+        </PrivacySection>
         <PrivacySection title="Responsável e contato">
           <p>Responsável pelo serviço — {PUBLIC_CONTACT.responsible}.</p>
           <p>Contato sobre privacidade — {PUBLIC_CONTACT.email}.</p>

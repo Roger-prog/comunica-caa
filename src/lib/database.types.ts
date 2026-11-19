@@ -5,6 +5,7 @@ export type Profile = {
   id: string;
   nome: string;
   role: AccountRole | null;
+  professional_category?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -59,7 +60,7 @@ export type Database = {
       caa_profiles: {
         Row: Profile;
         Insert: never;
-        Update: { nome?: string };
+        Update: { nome?: string; professional_category?: string | null };
         Relationships: [];
       };
       criancas: {
@@ -135,6 +136,7 @@ export type Database = {
       caa_events: { Row: Comunicacao; Relationships: [] };
     };
     Functions: {
+      delete_own_caa_account: { Args: { p_expected_user_id: string }; Returns: undefined };
       complete_caa_profile: {
         Args: {
           p_role: AccountRole;

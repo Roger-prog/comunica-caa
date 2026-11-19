@@ -500,4 +500,18 @@ test('PostgreSQL: event upgrade, scoped history and retention', async (t) => {
     await db.query('delete from auth.users where id = $1', [OWNER]);
     assert.equal((await db.query('select id from public.comunicacoes where crianca_id = $1', [CHILD])).rows.length, 0);
   });
+  await t.test('account preferences and deletion are scoped to the signed-in account', async () => {
+    const denied = (promise, code = '42501') => assert.rejects(promise, { code });
+    await db.exec(await readFile(new URL('../migrations/009_account_preferences.sql', import.meta.url), 'utf8'));
+    await as(PROFESSIONAL, () => db.query("update public.caa_profiles set professional_category='Professor' where id=$1", [PROFESSIONAL]));
+    await denied(as(OTHER_OWNER, () => db.query("update public.caa_profiles set professional_category='Professor' where id=$1", [OTHER_OWNER])), '23514');
+    const remove = (caller, target) => as(caller, () => db.query('select public.delete_own_caa_account($1)', [target]));
+    await denied(remove(null, OTHER_OWNER));
+    await denied(remove(OWNER, OTHER_OWNER));
+    await denied(remove(UNCONFIRMED, UNCONFIRMED));
+    await remove(OTHER_OWNER, OTHER_OWNER);
+    assert.equal((await db.query('select id from auth.users where id=$1', [OTHER_OWNER])).rows.length, 0);
+    assert.equal((await db.query('select id from auth.users where id=$1', [PROFESSIONAL])).rows.length, 1);
+  });
+
 });

@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { CATALOG_PICTOGRAMS, NEEDS_PICTOGRAM_IDS, PICTOGRAMS } from "../data/pictograms";
+import { CATALOG_PICTOGRAMS, PICTOGRAMS } from "../data/pictograms";
 import { DEFAULT_BOARD_SETTINGS } from "../lib/patientBoardModel";
 import type { SpeechOptions } from "../hooks/useSpeech";
 import { CommunicationBoard } from "./CommunicationBoard";

@@ -1,3 +1,4 @@
+import { LibrasPanel } from "./LibrasPanel";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ArrowLeft, ArrowRight, Check, LockKeyhole, Plus, Search, Square, Trash2, Star, Undo2, Volume2, X } from "lucide-react";
 import {
@@ -291,6 +292,7 @@ export function CommunicationBoard({
           A leitura em voz alta está indisponível. Os símbolos continuam acessíveis.
         </p>}
         <SpeechFeedback speech={speech} compact />
+        {sentence.length > 0 && <LibrasPanel key={spokenWords.join(" ")} phrase={spokenWords.join(" ")} />}
       </section>
 
       <section aria-labelledby="symbols-title" className="space-y-2">
