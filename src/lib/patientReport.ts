@@ -85,7 +85,7 @@ export async function buildPatientReport(input: PatientReportInput): Promise<jsP
   const margin = 18;
   const width = doc.internal.pageSize.getWidth();
   const usable = width - margin * 2;
-  const purple: [number, number, number] = [105, 70, 152];
+  const brandColor: [number, number, number] = [20, 70, 74];
   const dark: [number, number, number] = [46, 41, 55];
   const muted: [number, number, number] = [100, 95, 110];
   const period = `${displayDay(input.period.from)} a ${displayDay(input.period.to)}`;
@@ -98,7 +98,7 @@ export async function buildPatientReport(input: PatientReportInput): Promise<jsP
   function brand() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.setTextColor(...purple);
+    doc.setTextColor(...brandColor);
     doc.text("Comunica - CAA", margin, 21);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
@@ -138,20 +138,42 @@ export async function buildPatientReport(input: PatientReportInput): Promise<jsP
     ["SÍMBOLOS DISTINTOS", summary.symbols], ["DIAS COM REGISTROS", days],
   ].forEach(([label, value], index) => {
     const x = margin + index * (cardWidth + 4);
-    doc.setFillColor(247, 244, 250);
+    doc.setFillColor(251, 247, 240);
     doc.roundedRect(x, summaryY, cardWidth, 19, 2, 2, "F");
     doc.setFontSize(7);
     doc.setTextColor(...muted);
     doc.text(String(label), x + 4, summaryY + 5, { maxWidth: cardWidth - 8 });
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.setTextColor(...purple);
+    doc.setTextColor(...brandColor);
     doc.text(Number(value).toLocaleString("pt-BR"), x + 4, summaryY + 15);
     doc.setFont("helvetica", "normal");
   });
 
+  let chartY = summaryY + 28;
+  function bars(title: string, rows: { label: string; count: number }[]) {
+    const max = Math.max(1, ...rows.map(row => row.count));
+    doc.setTextColor(...dark);
+    doc.setFontSize(10);
+    doc.text(title, margin, chartY);
+    chartY += 7;
+    doc.setFontSize(8);
+    for (const row of rows) {
+      const label = doc.splitTextToSize(text(row.label), 52)[0];
+      doc.text(label, margin, chartY);
+      doc.setFillColor(...brandColor);
+      if (row.count) doc.rect(margin + 56, chartY - 3, (usable - 74) * row.count / max, 3, "F");
+      doc.text(String(row.count), width - margin, chartY, { align: "right" });
+      chartY += 6;
+    }
+    chartY += 5;
+  }
+  if (events.length) {
+    bars("Uso da prancha no período", [{ label: "Seleções", count: summary.selections }, { label: "Mensagens reproduzidas", count: summary.messages }]);
+    if (summary.top.length) bars("Símbolos mais selecionados", summary.top);
+  }
   autoTable(doc, {
-    startY: summaryY + 26,
+    startY: chartY,
     margin: { left: margin, right: margin, top: 51, bottom: 20 },
     head: [["Data e hora", "Tipo", "Símbolo ou mensagem", "Categoria"]],
     body: events.length
@@ -164,7 +186,7 @@ export async function buildPatientReport(input: PatientReportInput): Promise<jsP
       : [[{ content: "Nenhum registro de comunicação no período selecionado.", colSpan: 4, styles: { halign: "center", textColor: muted, minCellHeight: 18, valign: "middle" } }]],
     theme: "striped",
     styles: { font: "helvetica", fontSize: 8.5, cellPadding: 3, overflow: "linebreak", textColor: dark, lineColor: [235, 230, 240], lineWidth: 0.1 },
-    headStyles: { fillColor: purple, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
+    headStyles: { fillColor: brandColor, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
     alternateRowStyles: { fillColor: [250, 248, 252] },
     columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 34 }, 2: { cellWidth: 67 }, 3: { cellWidth: usable - 136 } },
     rowPageBreak: "avoid",

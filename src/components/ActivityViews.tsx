@@ -1,3 +1,4 @@
+import { PronunciationRecorder } from "./PronunciationRecorder";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, ArrowUpRight, Clock3, Hand, MessageCircle, Search, Sparkles } from "lucide-react";
 import type { Pictogram } from "../data/pictograms";
@@ -138,6 +139,7 @@ export function Evolution({
   const waiting = patientId ? !active : loading;
   return (
     <div className="space-y-6">
+      <PronunciationRecorder key={patientId ?? "demo"} />
       <div className="flex flex-wrap items-end gap-4">
         <label className="grid gap-2 text-sm font-medium">
           Período
@@ -230,7 +232,9 @@ export function History({
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ActivityFilter>("all");
-  const filtered = useMemo(() => filterActivity(events, filter, search), [events, filter, search]);
+  const [days, setDays] = useState(0);
+  const today = todayInSaoPaulo();
+  const filtered = useMemo(() => filterActivity(days ? activityInPeriod(events, recentActivityPeriod(days, today)) : events, filter, search), [events, filter, search, days, today]);
   const byId = useMemo(() => catalog ? new Map(catalog.map((item) => [item.id, item])) : undefined, [catalog]);
   return (
     <div className="space-y-6">
@@ -238,6 +242,12 @@ export function History({
         Horário de Brasília.{hasOlder ? " A busca considera os registros carregados." : ""}
       </p>
       <div className="flex flex-wrap items-end gap-3">
+        <label className="grid gap-2 text-sm font-medium">
+          Período do histórico
+          <select className="input-field" value={days} onChange={event => setDays(Number(event.target.value))}>
+            <option value="0">Todo o período</option><option value="1">Hoje</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option>
+          </select>
+        </label>
         <label className="grid gap-2 text-sm font-medium">
           Tipo de evento
           <select className="input-field w-auto" value={filter} onChange={(event) => setFilter(event.target.value as ActivityFilter)}>

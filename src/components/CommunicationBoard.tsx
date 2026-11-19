@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ArrowLeft, ArrowRight, Check, LockKeyhole, Plus, Search, Square, Star, Undo2, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, LockKeyhole, Plus, Search, Square, Trash2, Star, Undo2, Volume2, X } from "lucide-react";
 import {
   CATALOG_CATEGORIES,
   CATALOG_PICTOGRAMS,
@@ -263,7 +263,7 @@ export function CommunicationBoard({
             </button>
             <button ref={clearButton} type="button" className="board-control" aria-expanded={confirmClear}
               onClick={() => setConfirmClear(true)}>
-              Limpar
+              <Trash2 size={17} aria-hidden="true" /> Limpar
             </button>
           </>}
           {speech.speaking && <button type="button" className="board-control" onClick={speech.stop}>
@@ -309,7 +309,12 @@ export function CommunicationBoard({
           </button>}
         </div>}
         <div role="group" aria-label="Áreas da prancha" className="grid grid-cols-3 gap-1 min-[360px]:grid-cols-4 sm:flex sm:flex-wrap">
-          {VIEWS.filter(([key]) => key !== "quick" || settings.quickPhrasesEnabled).map(([key, label, shortLabel]) => (
+          <button type="button" className="board-control" disabled={!activeQuery && view === "home" && visiblePage === 0}
+            onClick={() => { if (activeQuery) setQuery(""); else if (visiblePage > 0) setPage(visiblePage - 1); else open(category ? view : "home"); }}>Voltar a página</button>
+          <button type="button" className="board-control" disabled={!sentence.length} onClick={() => remove(sentence.length - 1)}>Ops</button>
+          {view === "categories" && <button type="button" className="board-control" disabled={!speech.supported}
+            onClick={() => playMessage(["Não está no meu livro, mas vou dar uma dica"])}>Não está no meu livro, mas vou dar uma dica</button>}
+          {VIEWS.filter(([key]) => !["home", "needs", "essential"].includes(key) && view !== "categories" && (key !== "quick" || settings.quickPhrasesEnabled)).map(([key, label, shortLabel]) => (
             <button type="button" key={key} aria-pressed={!activeQuery && view === key}
               aria-label={label}
               className={!activeQuery && view === key ? "board-control board-control-active px-1" : "board-control px-1"}
@@ -343,13 +348,15 @@ export function CommunicationBoard({
         )}
         {showingGroups ? (
           categoryChoices.length ? <div className="grid gap-2 min-[360px]:grid-cols-2 lg:grid-cols-3">
-            {categoryChoices.map((label) => <button key={label} type="button"
+            {categoryChoices.map((label) => {
+              const sample = catalog.find(item => categoryMatch(item, label) && (item.imageUrl || item.symbol || item.imagePath));
+              return <button key={label} type="button"
               className="board-control justify-between text-left"
               onClick={() => { setCategory(label); setPage(0); requestAnimationFrame(() => categoryHeading.current?.focus()); }}>
-              <span>{label}</span>
+              {sample && <PictogramPicture item={sample} compact />}<span>{label}</span>
               {settings.favoriteCategories.includes(toCategoryId(label)) && <Star size={15} className="text-brand-700" aria-hidden="true" />}
               <ArrowRight size={17} aria-hidden="true" />
-            </button>)}
+            </button>; })}
           </div> : <p role="status" className="surface p-4">Nenhuma categoria habilitada.</p>
         ) : showingQuick ? (
           settings.quickPhrases.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

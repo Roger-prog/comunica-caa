@@ -79,10 +79,11 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     const { props, prefetch, cancellations } = fixture();
     const { unmount } = render(<CommunicationBoard {...props} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
     fireEvent.click(screen.getByRole("button", { name: "Necessidades" }));
     expect(cancellations[0]).toHaveBeenCalledOnce();
     expect(prefetch).toHaveBeenLastCalledWith(
-      PICTOGRAMS.filter((item) => NEEDS_PICTOGRAM_IDS.includes(item.id)).map(
+      PICTOGRAMS.filter((item) => item.category === "Necessidades").map(
         (item) => item.label,
       ),
       { voiceURI: props.voiceURI, rate: props.rate, offlineOnly: true },
@@ -387,9 +388,9 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(screen.getByText("Página 2 de 2")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" }))
       .getByText(ordered[0].label)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Necessidades" }));
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
     expect(screen.queryByRole("button", { name: "Próxima página" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Início" }));
+    fireEvent.click(screen.getByRole("button", { name: "Voltar a página" }));
     expect(screen.getByText("Página 1 de 2")).toBeInTheDocument();
   });
 
