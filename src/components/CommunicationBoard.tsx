@@ -5,9 +5,7 @@ import {
   CATALOG_CATEGORIES,
   CATALOG_PICTOGRAMS,
   DEFAULT_HOME_SYMBOL_IDS,
-  ESSENTIAL_PICTOGRAM_IDS,
   HEALTH_CATEGORIES,
-  NEEDS_PICTOGRAM_IDS,
   getPictogramSpeech,
   searchPictograms,
   toCategoryId,
@@ -35,7 +33,7 @@ interface CommunicationBoardProps {
 }
 
 const VIEWS = [
-  ["home", "Início"], ["essential", "Vocabulário essencial", "Essencial"], ["needs", "Necessidades"],
+  ["home", "Início"],
   ["categories", "Categorias"], ["health", "Saúde"], ["favorites", "Favoritos"],
   ["custom", "Meus símbolos"], ["quick", "Frases rápidas"],
 ] as const;
@@ -110,8 +108,6 @@ export function CommunicationBoard({
     if (view === "home") {
       return orderedByIds(catalog, settings.homeSymbols ?? DEFAULT_HOME_SYMBOL_IDS);
     }
-    if (view === "essential") return orderedByIds(catalog, ESSENTIAL_PICTOGRAM_IDS);
-    if (view === "needs") return orderedByIds(catalog, NEEDS_PICTOGRAM_IDS);
     if (view === "favorites") return orderedByIds(catalog, settings.favorites);
     if (view === "custom") return catalog.filter((item) => item.source === "custom");
     if (!category) return [];
@@ -162,6 +158,13 @@ export function CommunicationBoard({
     setCategory("");
     setQuery("");
     setPage(0);
+  }
+
+  function previousPage() {
+    if (activeQuery) setQuery("");
+    else if (visiblePage > 0) setPage(visiblePage - 1);
+    else open(category ? view : "home");
+    requestAnimationFrame(() => categoryHeading.current?.focus());
   }
 
   function playMessage(segments: readonly string[]) {
@@ -312,15 +315,15 @@ export function CommunicationBoard({
         </div>}
         <div role="group" aria-label="Áreas da prancha" className="grid grid-cols-3 gap-1 min-[360px]:grid-cols-4 sm:flex sm:flex-wrap">
           <button type="button" className="board-control" disabled={!activeQuery && view === "home" && visiblePage === 0}
-            onClick={() => { if (activeQuery) setQuery(""); else if (visiblePage > 0) setPage(visiblePage - 1); else open(category ? view : "home"); }}>Voltar a página</button>
+            onClick={previousPage}>Voltar a página</button>
           <button type="button" className="board-control" disabled={!sentence.length} onClick={() => remove(sentence.length - 1)}>Ops</button>
           {view === "categories" && <button type="button" className="board-control" disabled={!speech.supported}
             onClick={() => playMessage(["Não está no meu livro, mas vou dar uma dica"])}>Não está no meu livro, mas vou dar uma dica</button>}
-          {VIEWS.filter(([key]) => !["home", "needs", "essential"].includes(key) && view !== "categories" && (key !== "quick" || settings.quickPhrasesEnabled)).map(([key, label, shortLabel]) => (
+          {VIEWS.filter(([key]) => key !== "home" && view !== "categories" && (key !== "quick" || settings.quickPhrasesEnabled)).map(([key, label]) => (
             <button type="button" key={key} aria-pressed={!activeQuery && view === key}
               aria-label={label}
               className={!activeQuery && view === key ? "board-control board-control-active px-1" : "board-control px-1"}
-              onClick={() => open(key)}>{shortLabel ?? label}</button>
+              onClick={() => open(key)}>{label}</button>
           ))}
         </div>
         <div className={category && !activeQuery ? "flex flex-wrap items-center gap-2" : undefined}>

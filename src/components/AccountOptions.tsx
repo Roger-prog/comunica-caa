@@ -45,7 +45,8 @@ export function AccountOptions({ user, signOut }: { user: AuthUser; signOut: () 
       setBusy(false);
       return;
     }
-    try { await signOut(); } finally { window.location.replace("/login"); }
+    try { await signOut(); } catch { /* The server has already deleted the session owner. */ }
+    window.location.replace("/login");
   }
   return <div className="mt-4 space-y-3">
     {user.role === "fonoaudiologo" && <label className="grid gap-2">Categoria profissional

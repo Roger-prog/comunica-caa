@@ -11,7 +11,7 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 ## Prancha de comunicação
 
 - 418 entradas reunindo o vocabulário de CAA, os símbolos originais e os grupos de apoio à teleconsulta.
-- Tela inicial com vocabulário reduzido, navegação por categorias, favoritos e símbolos próprios.
+- Tela inicial configurável, categorias ilustradas e comandos para voltar, desfazer a última escolha e oferecer uma dica.
 - Busca que reconhece acentos, variantes de escrita e palavras relacionadas.
 - Pictogramas oficiais do ARASAAC com indicação de origem e cartões com legenda quando a imagem aguarda revisão.
 - Composição de frases com limite configurável de 8 a 80 símbolos por paciente. A prancha mantém a ordem e as repetições escolhidas.
@@ -36,7 +36,7 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 - Conclusão do perfil no primeiro acesso pelo Google.
 - Painéis e navegação de acordo com o tipo de conta.
 - Perfis individuais de crianças vinculados ao usuário.
-- Histórico por perfil, com pictogramas, pesquisa e filtros para seleções de símbolos e mensagens reproduzidas.
+- Histórico por perfil, com pictogramas, pesquisa, filtro de período e filtros para seleções de símbolos e mensagens reproduzidas.
 - Registro de símbolos do catálogo e símbolos personalizados. Mensagens completas são registradas quando a leitura começa.
 - Controles para pausar novos registros e excluir o histórico inteiro ou registros anteriores ao período escolhido.
 - Indicadores de uso em períodos de 7 ou 30 dias ou em um período personalizado.
@@ -76,3 +76,7 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 - Navegação entre a prancha, evolução, histórico, ajustes e painel profissional.
 - Saída da conta com encerramento da sessão de demonstração e retorno ao login.
 - Perfis e comunicações de exemplo para explorar as funcionalidades.
+
+## Relatórios e comunicação
+
+O relatório PDF inclui o período, totais, gráficos de frequência e uma tabela paginada. Na Evolução, a gravação de pronúncia permite ouvir e descartar um trecho local. A tradução em Libras é opcional e disponibiliza somente a frase escolhida ao intérprete. A migração 009 habilita a categoria profissional e a exclusão da própria conta. Contas com fotos devem remover as imagens antes da exclusão.

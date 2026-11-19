@@ -77,6 +77,14 @@ export function AuthLayout({
             {children}
           </section>
         </div>
+        <details className="mb-6 border-y border-stone-200 py-2">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold">Como usar a prancha e os perfis</summary>
+          <h2 className="mt-4 text-xl">Cores que ajudam a montar frases</h2>
+          <p className="my-2">Combine pessoas em amarelo, ações em verde, coisas em laranja, adjetivos em azul e expressões sociais em rosa.</p>
+          <h2 className="mt-4 text-xl">Perfis e privacidade</h2>
+          <p className="my-2">O responsável organiza a prancha da criança. O profissional acompanha pacientes vinculados por convite.</p>
+          <Link className="inline-flex min-h-11 items-center underline" to="/privacidade">Ler sobre o uso dos dados</Link>
+        </details>
         <footer className="flex flex-col items-center justify-center gap-2 text-xs text-stone-500">
           <span className="inline-flex items-center gap-2">
             <ShieldCheck size={15} aria-hidden="true" />

@@ -55,7 +55,7 @@ export function AboutPage() {
     <PublicLayout>
       <section className="public-hero" aria-labelledby="about-title">
         <div className="hero-copy">
-        
+
         <h1 id="about-title" className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
           Símbolos e voz para comunicar escolhas.
         </h1>
@@ -138,7 +138,7 @@ export function PrivacyPage() {
   return (
     <PublicLayout>
       <article className="surface mx-auto max-w-3xl p-6 sm:p-10" aria-labelledby="privacy-title">
-        
+
         <h1 id="privacy-title" className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
           Política de privacidade
         </h1>

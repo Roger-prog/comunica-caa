@@ -76,7 +76,7 @@ type DailyActivity = { day: string; selections: number; messages: number };
 
 export function summarizeActivity(events: readonly Comunicacao[]) {
   const symbols = new Map<string, SymbolCount>();
-  const categories = new Set<string>();
+  const categories = new Map<string, number>();
   const byDay = new Map<string, DailyActivity>();
   let selections = 0;
   let messages = 0;
@@ -97,7 +97,7 @@ export function summarizeActivity(events: readonly Comunicacao[]) {
     }
     daily.selections++;
     selections++;
-    if (event.categoria) categories.add(event.categoria);
+    if (event.categoria) categories.set(event.categoria, (categories.get(event.categoria) ?? 0) + 1);
     if (event.pictograma_id) {
       const id = `${event.symbol_source}:${event.pictograma_id}`;
       const timestamp = Date.parse(event.created_at);
@@ -114,7 +114,8 @@ export function summarizeActivity(events: readonly Comunicacao[]) {
   const top = [...symbols.values()].sort((a, b) =>
     b.count - a.count || a.label.localeCompare(b.label, "pt-BR") || a.id.localeCompare(b.id),
   ).slice(0, 6);
-  return { selections, messages, legacy, categories: categories.size, symbols: symbols.size, top, byDay };
+  const byCategory = [...categories].sort(([a, n], [b, m]) => m - n || a.localeCompare(b, "pt-BR"));
+  return { selections, messages, legacy, byCategory, categories: categories.size, symbols: symbols.size, top, byDay };
 }
 
 export function dailyActivity(period: ActivityPeriod, byDay: ReadonlyMap<string, DailyActivity>) {

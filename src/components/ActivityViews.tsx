@@ -189,6 +189,15 @@ export function Evolution({
             </div>
             {visible.length || patientId ? <DailyActivityChart period={period} byDay={summary.byDay} /> : null}
             {!visible.length && <EmptyActivity onBoard={onBoard} />}
+            {summary.byCategory.length > 0 && <section className="surface space-y-3 p-5">
+              <h2 className="text-lg font-semibold">Seleções por categoria</h2>
+              <ul className="grid gap-3">{summary.byCategory.map(([label, count]) =>
+                <li key={label} className="grid gap-1">
+                  <span className="flex justify-between gap-3"><span>{label}</span><strong>{count}</strong></span>
+                  <span className="h-2 rounded bg-brand-50" aria-hidden="true"><span className="block h-full rounded bg-brand-600"
+                    style={{ width: (100 * count / summary.byCategory[0][1]) + "%" }} /></span>
+                </li>)}</ul>
+            </section>}
             {summary.top.length > 0 && (
               <section className="surface p-6" aria-labelledby="frequent-symbols">
                 <h2 id="frequent-symbols" className="mb-6 text-lg font-semibold">Símbolos mais utilizados</h2>
