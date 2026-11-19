@@ -175,7 +175,7 @@ export function ChildModePinDialog({
           cancel();
         }}
         onKeyDown={handleKeyDown}
-        className="fixed inset-0 z-[60] m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-3xl border border-stone-200 bg-white p-6 text-ink shadow-xl backdrop:bg-black/40 sm:p-8"
+        className="fixed inset-0 z-[60] m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 text-ink shadow-xl backdrop:bg-black/40 sm:p-8"
       >
         <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
           <LockKeyhole size={24} aria-hidden="true" />

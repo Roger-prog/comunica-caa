@@ -1,3 +1,4 @@
+import { DemoBoard } from "../components/DemoBoard";
 import type { ReactNode } from "react";
 import {
   HeartHandshake,
@@ -19,7 +20,7 @@ export function AuthLayout({
   children: ReactNode;
 }) {
   return (
-    <main className="min-h-dvh bg-[#faf9f6] text-ink">
+    <main className="min-h-dvh bg-paper text-ink">
       <a
         href="#auth-form"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3"
@@ -40,17 +41,13 @@ export function AuthLayout({
               <span className="block text-2xl font-bold tracking-tight">
                 Comunica<span className="text-brand-600">.</span>
               </span>
-              <span className="block text-xs font-medium tracking-wide text-stone-500">
-                COMUNICAÇÃO QUE APROXIMA
-              </span>
+
             </span>
           </Link>
         </header>
         <div className="grid flex-1 items-center gap-12 py-10 lg:grid-cols-[1.05fr_1fr] lg:gap-20">
           <section aria-labelledby="welcome-title" className="max-w-lg">
-            <p className="eyebrow mb-5">
-              Comunicação Aumentativa e Alternativa
-            </p>
+            
             <h1
               id="welcome-title"
               className="text-4xl font-semibold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl"
@@ -63,28 +60,12 @@ export function AuthLayout({
               Um espaço para se expressar, construir autonomia e acompanhar cada
               nova forma de comunicar.
             </p>
-            <div className="mt-9 space-y-4">
-              <Feature
-                Icon={MessageCircle}
-                title="Encontre as palavras"
-                text="Uma prancha visual simples, organizada por categorias."
-              />
-              <Feature
-                Icon={Volume2}
-                title="Dê voz às escolhas"
-                text="Toque em um símbolo para ouvir sua mensagem."
-              />
-              <Feature
-                Icon={HeartHandshake}
-                title="Acompanhe cada passo"
-                text="Perfis individuais, histórico e registros de comunicação."
-              />
-            </div>
+            <DemoBoard />
           </section>
           <section
             id="auth-form"
             aria-labelledby="auth-title"
-            className="surface min-w-0 rounded-[1.75rem] p-6 shadow-[0_10px_50px_-30px_rgba(70,40,100,0.35)] sm:p-9"
+            className="surface min-w-0 rounded-2xl p-6 shadow-[4px_4px_0_var(--color-brand)] sm:p-9"
           >
             <h2
               id="auth-title"
@@ -114,27 +95,6 @@ export function AuthLayout({
         </footer>
       </div>
     </main>
-  );
-}
-function Feature({
-  Icon,
-  title,
-  text,
-}: {
-  Icon: typeof MessageCircle;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-600">
-        <Icon size={21} aria-hidden="true" />
-      </span>
-      <div>
-        <p className="text-sm font-semibold">{title}</p>
-        <p className="mt-0.5 text-sm leading-relaxed text-stone-500">{text}</p>
-      </div>
-    </div>
   );
 }
 export function AuthAlert({ children }: { children: ReactNode }) {

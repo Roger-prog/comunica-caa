@@ -1,3 +1,4 @@
+import { DemoBoard } from "./DemoBoard";
 import type { ReactNode } from "react";
 import { ArrowRight, MessageCircle, ShieldCheck, Volume2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -9,7 +10,7 @@ export const PUBLIC_CONTACT = {
 
 function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh bg-[#faf9f6] text-ink">
+    <div className="min-h-dvh bg-paper text-ink">
       <a
         href="#public-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3"
@@ -53,7 +54,7 @@ export function AboutPage() {
   return (
     <PublicLayout>
       <section aria-labelledby="about-title">
-        <p className="eyebrow">Comunicação Aumentativa e Alternativa</p>
+        
         <h1 id="about-title" className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
           Símbolos e voz para comunicar escolhas.
         </h1>
@@ -70,36 +71,16 @@ export function AboutPage() {
           <Link to="/login" className="button-secondary">Acessar o Comunica</Link>
         </div>
       </section>
-      <section aria-label="Recursos do Comunica" className="mt-12 grid gap-5 sm:grid-cols-3">
-        <article className="surface p-6">
-          <MessageCircle className="text-brand-600" size={27} aria-hidden="true" />
-          <h2 className="mt-4 text-lg font-semibold">Prancha de comunicação</h2>
-          <p className="mt-3 text-sm leading-7 text-stone-600">
-            Símbolos organizados por categorias, busca por palavras e frases
-            formadas na ordem escolhida. O modo comunicação concentra a interface
-            na comunicação e protege a saída com um PIN.
-          </p>
-        </article>
-        <article className="surface p-6">
-          <Volume2 className="text-brand-600" size={27} aria-hidden="true" />
-          <h2 className="mt-4 text-lg font-semibold">Leitura em português</h2>
-          <p className="mt-3 text-sm leading-7 text-stone-600">
-            Leitura dos símbolos e das frases com vozes em português do Brasil.
-            A velocidade e o tamanho dos cartões podem ser ajustados no navegador.
-          </p>
-        </article>
-        <article className="surface p-6">
-          <ShieldCheck className="text-brand-600" size={27} aria-hidden="true" />
-          <h2 className="mt-4 text-lg font-semibold">Acompanhamento individual</h2>
-          <p className="mt-3 text-sm leading-7 text-stone-600">
-            O responsável organiza os perfis e acompanha o histórico. Profissionais
-            vinculados por convite podem consultar os registros e exportar
-            relatórios em PDF.
-          </p>
-        </article>
+      <DemoBoard />
+      <section className="mt-10 space-y-3">
+        <h2 className="text-3xl">Cores que ajudam a montar frases</h2>
+        <p>Pessoas em amarelo, ações em verde, coisas em laranja, adjetivos em azul e expressões sociais em rosa. Na prancha acima, experimente formar “Eu quero água gelada, por favor”.</p>
+      </section>
+      <section className="mt-10 space-y-3"><h2 className="text-3xl">Quem acompanha a criança</h2>
+        <p>O responsável organiza os símbolos do dia a dia. O profissional vinculado acompanha o uso da prancha e gera relatórios.</p>
       </section>
       <section className="surface mt-8 p-6 sm:p-8" aria-labelledby="account-title">
-        <h2 id="account-title" className="text-2xl font-semibold">Acesso à sua conta</h2>
+        <h2 id="account-title" className="text-2xl font-semibold">Privacidade e acesso à sua conta</h2>
         <p className="mt-4 max-w-3xl leading-8 text-stone-600">
           A conta pode ser criada com e-mail e senha ou pelo login Google. O
           nome, o e-mail e o identificador fornecidos na autenticação permitem
@@ -155,7 +136,7 @@ export function PrivacyPage() {
   return (
     <PublicLayout>
       <article className="surface mx-auto max-w-3xl p-6 sm:p-10" aria-labelledby="privacy-title">
-        <p className="eyebrow">Comunica - CAA</p>
+        
         <h1 id="privacy-title" className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
           Política de privacidade
         </h1>

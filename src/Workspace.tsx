@@ -243,7 +243,7 @@ export default function Workspace({
     <div
       className={
         isChildMode
-          ? "min-h-dvh bg-[#faf9f6]"
+          ? "min-h-dvh bg-paper"
           : "min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]" + (view === "board" ? " workspace-board" : "")
       }
     >
@@ -270,12 +270,12 @@ export default function Workspace({
                 <span className="text-2xl font-bold tracking-tight">
                   Comunica<span className="text-brand-600">.</span>
                 </span>
-                <span className="mt-0.5 hidden text-xs tracking-[.19em] text-stone-500 uppercase lg:block">
+                <span className="mt-0.5 hidden text-xs text-stone-500 lg:block">
                   Cada expressão importa
                 </span>
               </div>
             </a>
-            <p className="eyebrow mb-4 hidden px-3 lg:block">Meu espaço</p>
+            
             <nav
               aria-label="Navegação principal"
               className="grid auto-cols-fr grid-flow-col gap-1 lg:flex lg:flex-col lg:gap-2"
@@ -307,7 +307,7 @@ export default function Workspace({
                 ))}
             </nav>
             <div className="mt-auto hidden lg:block">
-              <div className="mb-6 rounded-3xl bg-[#faf8fc] p-4">
+              <div className="mb-6 rounded-2xl bg-[#faf8fc] p-4">
                 <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 text-brand-600">
                   <ShieldCheck size={19} aria-hidden="true" />
                 </span>
@@ -452,9 +452,7 @@ export default function Workspace({
                 </div>
               )}
               {view === "board" ? <h1 className="sr-only">{active.title}</h1> : <div className="mb-7">
-                <p className="eyebrow mb-3">
-                  Comunicação aumentativa e alternativa
-                </p>
+                
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-[34px]">
                   {active.title}
                 </h1>
@@ -750,7 +748,7 @@ export default function Workspace({
                     </label>
                     <input
                       id="rate"
-                      className="min-h-12 w-full accent-[#6c48a0]"
+                      className="min-h-12 w-full accent-brand"
                       type="range"
                       min="0.5"
                       max="1.5"
@@ -789,7 +787,7 @@ export default function Workspace({
                     <label className="flex min-h-12 items-center gap-4">
                       <input
                         type="checkbox"
-                        className="h-6 w-6 accent-[#6c48a0]"
+                        className="h-6 w-6 accent-brand"
                         checked={preferences.largeCards}
                         onChange={(event) =>
                           setPreferences({

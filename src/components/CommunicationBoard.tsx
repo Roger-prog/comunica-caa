@@ -44,6 +44,18 @@ function categoryMatch(item: Pictogram, category: string) {
   return item.category === category || item.categories?.includes(category);
 }
 
+function grammarColor(item: Pictogram) {
+  const categories = item.categories ?? [item.category];
+  const groups = [
+    ["acoes", ["Verbos de Ação", "Verbos Ajudantes"]],
+    ["pessoas", ["Pessoas", "Pessoas e Famílias", "Pronomes"]],
+    ["social", ["Palavras Sociais", "Conversar"]],
+    ["adjetivos", ["Descrição", "Cores", "Sentimentos"]],
+  ] as const;
+  const group = groups.find(([, labels]) => labels.some(label => categories.includes(label)));
+  return "var(--color-" + (group?.[0] ?? "coisas") + ")";
+}
+
 function orderedByIds(items: readonly Pictogram[], ids: readonly string[]) {
   const byId = new Map(items.map((item) => [item.id, item]));
   return ids.flatMap((id) => {
@@ -221,7 +233,7 @@ export function CommunicationBoard({
   const imageSize = isChildMode && settings.imageSize !== "large" ? "regular" : settings.imageSize;
 
   return (
-    <div className={settings.contrast ? "board-contrast space-y-2 rounded-3xl bg-stone-200 p-2 text-black" : "space-y-2"}>
+    <div className={settings.contrast ? "board-contrast space-y-2 rounded-2xl bg-stone-200 p-2 text-black" : "space-y-2"}>
       <section className="surface p-2 sm:px-3" aria-labelledby="sentence-title">
         <h2 ref={composerHeading} id="sentence-title" tabIndex={-1} className="sr-only">O que vamos comunicar?</h2>
         {sentence.length > 0 && <div className="mb-2 flex max-h-[min(26dvh,9rem)] flex-wrap gap-1 overflow-y-auto rounded-xl bg-brand-50 p-1.5"
@@ -360,9 +372,10 @@ export function CommunicationBoard({
               {visible.map((item) => (
                 <button key={item.id} type="button"
                   aria-label={(settings.speakOnSelect ? "Falar " : "Adicionar ") + item.label + (duplicateLabels.has(item.label) ? " (" + item.category + ")" : "")}
+                  style={settings.contrast ? undefined : { backgroundColor: grammarColor(item), color: "#1d2b2c", borderColor: "#304545" }}
                   aria-pressed={lastSelected === item.id} onClick={() => select(item)}
                   className={[
-                    "relative flex min-w-0 flex-col items-center justify-center gap-2 rounded-3xl border-2 bg-white p-2 transition duration-150 hover:shadow-md active:bg-purple-200 active:scale-95 active:duration-0 motion-reduce:active:scale-100",
+                    "relative flex min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border-2 bg-white p-2 transition duration-150 hover:shadow-md active:bg-brand-100 active:scale-95 active:duration-0 motion-reduce:active:scale-100",
                     { compact: "min-h-20", regular: "min-h-26", large: "min-h-28 sm:min-h-36" }[cardSize],
                     lastSelected === item.id ? "border-brand-600 bg-brand-50"
                       : settings.contrast ? "border-black text-black" : "border-stone-200 text-ink",

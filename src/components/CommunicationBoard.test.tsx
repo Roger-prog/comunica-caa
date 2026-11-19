@@ -182,7 +182,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
 
     const button = screen.getByRole("button", { name: "Falar Água" });
     expect(button).toHaveClass(
-      "active:bg-purple-200",
+      "active:bg-brand-100",
       "active:scale-95",
       "active:duration-0",
       "motion-reduce:active:scale-100",

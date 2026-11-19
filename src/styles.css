@@ -1,18 +1,30 @@
 @import "tailwindcss";
+@import "@fontsource/fraunces/latin-600.css";
+@import "@fontsource/atkinson-hyperlegible/latin-400.css";
+@import "@fontsource/atkinson-hyperlegible/latin-700.css";
 
 @theme {
-  --font-sans: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  --color-brand-50: #f4effb;
-  --color-brand-100: #ebe1f6;
-  --color-brand-600: #6c48a0;
-  --color-brand-700: #563680;
-  --color-ink: #2e2937;
+  --color-paper: #fbf7f0;
+  --color-brand: #14464a;
+  --color-accent: #e4572e;
+  --color-pessoas: #f7d86a;
+  --color-acoes: #9fd8a6;
+  --color-coisas: #f6b77e;
+  --color-adjetivos: #9cc9ee;
+  --color-social: #f2a8c4;
+
+  --font-sans: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --color-brand-50: #e9f3ef;
+  --color-brand-100: #d5e7df;
+  --color-brand-600: #14464a;
+  --color-brand-700: #10393c;
+  --color-ink: #1d2b2c;
 }
 
 :root {
   font-family: var(--font-sans);
-  color: #2e2937;
-  background: #faf9f6;
+  color: #1d2b2c;
+  background: var(--color-paper);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -34,11 +46,11 @@ button:disabled {
   opacity: 0.6;
 }
 :focus-visible {
-  outline: 3px solid #6c48a0;
+  outline: 3px solid #14464a;
   outline-offset: 4px;
 }
 ::selection {
-  background: #e4d6f5;
+  background: #d5e7df;
 }
 
 .board-card-grid {
@@ -113,7 +125,7 @@ button.board-control {
     border-color: #111;
   }
   .surface {
-    @apply rounded-3xl border border-stone-200 bg-white;
+    @apply rounded-2xl border border-stone-200 bg-white;
   }
   .button-primary {
     @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60;
@@ -124,9 +136,7 @@ button.board-control {
   .input-field {
     @apply block min-h-12 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-base text-ink placeholder:text-stone-400;
   }
-  .eyebrow {
-    @apply text-xs font-bold tracking-[0.16em] text-brand-600 uppercase;
-  }
+
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -137,4 +147,15 @@ button.board-control {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+h1, h2 { font-family: Fraunces, Georgia, serif; }
+.demo-board { margin-top: 1.5rem; padding: clamp(1rem, 3vw, 2rem); border: 2px solid var(--color-brand); border-radius: 16px; box-shadow: 5px 5px 0 var(--color-brand); background: var(--color-paper); }
+.demo-word { display: grid; place-items: center; flex: 1 1 4rem; padding: .5rem; min-height: 48px; border: 2px solid #1d2b2c; border-radius: 14px; color: #1d2b2c; }
+.demo-word span { font-size: 1.65rem; }
+@media (prefers-color-scheme: dark) {
+  :root { --color-paper: #182425; --color-ink: #faf7ed; --color-white: #233334; --color-stone-50: #28393a; --color-stone-100: #334243; --color-stone-200: #566667; --color-stone-300: #687777; --color-stone-500: #bdcaca; --color-stone-600: #c7d3d1; --color-stone-700: #dae5e2; --color-brand-50: #253b39; --color-brand-100: #33524d; --color-brand-600: #9cd8cc; --color-brand-700: #addfd4; color: var(--color-ink); }
+  .button-primary, .board-control-active, .bg-brand-600.text-white, .bg-brand-700.text-white { color: #132626; }
+  :focus-visible { outline-color: #edb76c; }
+  .board-contrast { background: white; color: black; --color-white: white; --color-stone-700: black; --color-ink: black; }
 }
