@@ -3,8 +3,8 @@ import { ArrowRight, MessageCircle, ShieldCheck, Volume2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export const PUBLIC_CONTACT = {
-  responsible: "Roger Oliveira da Cunha",
-  email: "rogeroliveiradacunha587@gmail.com",
+  responsible: import.meta.env.VITE_CONTACT_NAME?.trim() || "Equipe Comunica",
+  email: import.meta.env.VITE_CONTACT_EMAIL?.trim() || "Canal de contato ainda não informado",
 } as const;
 
 function PublicLayout({ children }: { children: ReactNode }) {

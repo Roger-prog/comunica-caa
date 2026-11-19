@@ -51,6 +51,12 @@ describe("Public information pages", () => {
     expect(screen.queryByText("Restaurando sua sessão…")).not.toBeInTheDocument();
   });
 
+  it("displays the configured public contact or a neutral fallback", () => {
+    mount("/privacidade");
+    expect(screen.getByText("Responsável pelo serviço — " + (import.meta.env.VITE_CONTACT_NAME?.trim() || "Equipe Comunica") + ".")).toBeInTheDocument();
+    expect(screen.getByText("Contato sobre privacidade — " + (import.meta.env.VITE_CONTACT_EMAIL?.trim() || "Canal de contato ainda não informado") + ".")).toBeInTheDocument();
+  });
+
   it("links the public overview to privacy information and login", () => {
     mount("/sobre");
     fireEvent.click(screen.getByRole("link", { name: "Consulte como os dados são utilizados" }));
