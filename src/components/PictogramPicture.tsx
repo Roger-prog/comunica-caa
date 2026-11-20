@@ -5,11 +5,19 @@ import type { BoardSettings } from "../lib/patientBoardModel";
 import { PatientPhoto } from "./PatientPhoto";
 
 export function PictogramPicture({
-  item, size = "regular", compact = false,
-}: { item: Pictogram; size?: BoardSettings["imageSize"]; compact?: boolean }) {
+  item, size = "regular", compact = false, big = false, plain = false,
+}: {
+  item: Pictogram; size?: BoardSettings["imageSize"]; compact?: boolean;
+  /** Figuras maiores, para a prancha visual usada por crianças pequenas. */
+  big?: boolean;
+  /** Sem fundo colorido atrás da figura. */
+  plain?: boolean;
+}) {
   const [failedUrl, setFailedUrl] = useState("");
   const fallback = <ImageOff size={20} className="text-stone-500" />;
-  const pictureSize = compact ? "size-8" : {
+  const pictureSize = compact ? "size-8" : big ? {
+    small: "size-16", regular: "size-20 sm:size-24", large: "size-24 sm:size-32",
+  }[size] : {
     small: "size-12", regular: "size-16 sm:size-20", large: "size-20 sm:size-24",
   }[size];
   if (!item.imagePath && !item.imageUrl && !item.symbol) return null;
@@ -17,7 +25,7 @@ export function PictogramPicture({
     <span
       aria-hidden="true"
       className={pictureSize + " flex max-w-full shrink-0 items-center justify-center overflow-hidden rounded-xl text-3xl"}
-      style={{ backgroundColor: item.color }}
+      style={plain ? undefined : { backgroundColor: item.color }}
     >
       {item.imagePath ? (
         <PatientPhoto path={item.imagePath} alt="" className="size-full object-contain" fallback={fallback} />

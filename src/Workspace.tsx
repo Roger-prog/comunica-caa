@@ -292,11 +292,14 @@ export default function Workspace({
                     key={id}
                     type="button"
                     onClick={() => navigate(id)}
+                    aria-label={label}
                     aria-current={view === id ? "page" : undefined}
                     className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-1 text-xs font-semibold sm:min-h-14 sm:flex-row sm:gap-2 sm:px-2 sm:py-3 sm:text-sm lg:justify-start lg:gap-3 lg:px-4 ${view === id ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-50"}`}
                   >
                     <Icon size={20} className="shrink-0" aria-hidden="true" />
-                    <span className="max-w-full text-xs leading-tight [overflow-wrap:anywhere] sm:text-sm">{label}</span>
+                    <span className="max-w-full text-xs leading-tight [overflow-wrap:anywhere] sm:text-sm">
+                      {id === "professional" ? <><span className="sm:hidden">Fono</span><span className="hidden sm:inline">{label}</span></> : label}
+                    </span>
                     {view === id && (
                       <ChevronRight
                         size={16}

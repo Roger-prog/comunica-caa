@@ -10,6 +10,8 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 
 ## Prancha de comunicação
 
+- Prancha visual com figuras ampliadas, respostas Sim/Não, categorias ilustradas e botão “Opa!” para desfazer a última escolha.
+- Estilos da prancha isolados para preservar as fontes, a paleta e o modo escuro das demais telas. O alto contraste mantém os estados de seleção distinguíveis.
 - 418 entradas reunindo o vocabulário de CAA, os símbolos originais e os grupos de apoio à teleconsulta.
 - Tela inicial configurável, categorias ilustradas e comandos para voltar, desfazer a última escolha e oferecer uma dica.
 - Busca que reconhece acentos, variantes de escrita e palavras relacionadas.
@@ -80,3 +82,5 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 ## Relatórios e comunicação
 
 O relatório PDF inclui o período, totais, gráficos de frequência e uma tabela paginada. Na Evolução, a gravação de pronúncia permite ouvir e descartar um trecho local. A tradução em Libras é opcional e disponibiliza somente a frase escolhida ao intérprete. A migração 009 habilita a categoria profissional e a exclusão da própria conta. Contas com fotos devem remover as imagens antes da exclusão.
+
+A migração `009_account_preferences.sql` deve ser aplicada ao banco antes de disponibilizar as novas opções de conta no ambiente real. A integração dos arquivos e os testes locais não executam essa migração em produção. O carregamento do widget VLibras foi verificado; a tradução completa pelo avatar depende do serviço externo e ainda requer homologação.
