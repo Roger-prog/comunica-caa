@@ -355,36 +355,22 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   gap: 0.75rem;
 }
 
-@media (min-width: 768px) {
-  .kid-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 8.5rem;
-    align-items: start;
-  }
+.kid-area-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
-.kid-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  order: -1;
-  padding-bottom: 0.25rem;
-}
-
-@media (min-width: 768px) {
-  .kid-tabs {
-    order: 0;
-    flex-direction: column;
-    overflow: visible;
-    position: sticky;
-    top: 9.5rem;
+@media (min-width: 640px) {
+  .kid-area-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 .kid-tab {
   display: flex;
-  min-width: 5.5rem;
-  min-height: 4.5rem;
+  min-width: 0;
+  min-height: 8rem;
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
@@ -394,7 +380,7 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   border: 4px solid var(--c);
   background: color-mix(in srgb, var(--c) 18%, white);
   color: #2b2a33;
-  padding: 0.25rem 0.5rem;
+  padding: 0.75rem 0.5rem;
   text-align: center;
   font-size: 0.9375rem;
   font-weight: 800;
@@ -414,12 +400,6 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
 
 .kid-tab-on svg {
   color: var(--ink);
-}
-
-@media (min-width: 768px) {
-  .kid-tab {
-    width: 100%;
-  }
 }
 
 .kid-card {
@@ -536,7 +516,7 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   color: #fff;
 }
 
-/* Os três botões grandes da fono: voltar página · Opa! · avançar página. */
+/* Controles principais com pictograma e texto. */
 .kid-dock {
   position: sticky;
   bottom: 0;
@@ -557,6 +537,7 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   min-height: 5rem;
   flex: 1 1 0;
   max-width: 14rem;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
@@ -566,6 +547,9 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   color: #fff;
   font-size: 1.125rem;
   font-weight: 800;
+  text-align: center;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 0.25rem;
   box-shadow: 0 4px 0 #17275a;
   transition: transform 0.12s, box-shadow 0.12s;
 }
@@ -575,14 +559,22 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   box-shadow: 0 1px 0 #17275a;
 }
 
+.kid-dock-btn span { overflow-wrap: normal; }
+
 .kid-oops-btn {
-  max-width: 11rem;
-  flex-basis: 9rem;
   border-color: #8d200d;
   background: #b3260e;
   box-shadow: 0 4px 0 #b3260e;
   font-size: 1.5rem;
 }
+
+.kid-categories-btn {
+  border-color: #694092;
+  background: #694092;
+  box-shadow: 0 4px 0 #4e2b72;
+}
+
+.kid-categories-btn:active { box-shadow: 0 1px 0 #4e2b72; }
 
 .kid-oops-btn:active:not(:disabled) {
   box-shadow: 0 1px 0 #b3260e;
@@ -659,6 +651,11 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
   .kid-slot-label { max-width: 4.5rem; }
 }
 
+@media (max-width: 359px) {
+  .kid-dock-btn { font-size: 0.75rem; }
+  .kid-oops-btn { font-size: 1rem; }
+}
+
 .board-contrast.kid-board { background: #fff; color: #000; }
 .board-contrast :is(.kid-card, .kid-folder, .kid-tab, .kid-answer, .kid-strip, .kid-play, .kid-phrase, .kid-phrase-play, .kid-dock-btn, .kid-back, .kid-exit) {
   border-color: #000; background: #fff; color: #000; box-shadow: none;
@@ -672,6 +669,5 @@ h1, h2 { font-family: Fraunces, Georgia, serif; }
 @media (max-height: 520px) and (orientation: landscape) {
   .kid-top { position: static; }
   .kid-answer { min-height: 4rem; }
-  .kid-tabs { top: 0.5rem; }
   .kid-dock-btn { min-height: 4rem; }
 }

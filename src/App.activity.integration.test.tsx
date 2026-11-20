@@ -224,6 +224,7 @@ it("persists custom and official selections and one played message across a relo
 
   navigate("Prancha");
   fireEvent.click(await screen.findByRole("button", { name: "Falar Água" }));
+  fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
   fireEvent.click(screen.getByRole("button", { name: "Favoritos" }));
   fireEvent.click(await screen.findByRole("button", { name: "Falar Meu gato" }));
   fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
@@ -322,6 +323,7 @@ it("keeps each patient's saved neural voice after a preference change, switch an
 
   navigate("Prancha");
   fireEvent.click(await screen.findByRole("button", { name: "Falar Água" }));
+  fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
   fireEvent.click(screen.getByRole("button", { name: "Meus símbolos" }));
   fireEvent.click(screen.getByRole("button", { name: "Falar Símbolo fictício" }));
   fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
@@ -339,7 +341,8 @@ it("keeps each patient's saved neural voice after a preference change, switch an
 
   parent.unmount();
   mount("/prancha");
-  fireEvent.click(await screen.findByRole("button", { name: "Meus símbolos" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Categorias" }));
+  fireEvent.click(screen.getByRole("button", { name: "Meus símbolos" }));
   fireEvent.click(screen.getByRole("button", { name: "Falar Símbolo fictício" }));
   expect(fixture.speak).toHaveBeenLastCalledWith("Um gato amarelo", expect.objectContaining({ voiceURI: edresson, rate: 1.3 }));
 }, 20_000);
@@ -358,7 +361,8 @@ it("plays a symbol created by an authorized professional using the patient's pre
 
   mount("/login");
   await signIn("responsavel@example.test");
-  fireEvent.click(await screen.findByRole("button", { name: "Meus símbolos" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Categorias" }));
+  fireEvent.click(screen.getByRole("button", { name: "Meus símbolos" }));
   fireEvent.click(screen.getByRole("button", { name: "Falar Cadastrado em consulta" }));
   expect(fixture.speak).toHaveBeenLastCalledWith("Um animal de estimação", expect.objectContaining({
     voiceURI: DEFAULT_BOARD_SETTINGS.voiceURI, rate: DEFAULT_BOARD_SETTINGS.rate,

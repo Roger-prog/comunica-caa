@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CATALOG_PICTOGRAMS, NEEDS_PICTOGRAM_IDS, PICTOGRAMS } from "../data/pictograms";
 import { DEFAULT_BOARD_SETTINGS } from "../lib/patientBoardModel";
@@ -56,6 +56,11 @@ function fixture() {
   return { props, prefetch, cancellations, prepareSentence, preparations };
 }
 
+function openArea(name: string) {
+  fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Áreas da prancha" })).getByRole("button", { name }));
+}
+
 describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
   it("preloads only the rendered vocabulary without playing or registering selections", () => {
     const { props, prefetch, cancellations } = fixture();
@@ -79,7 +84,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     const { props, prefetch, cancellations } = fixture();
     const { unmount } = render(<CommunicationBoard {...props} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Necessidades" }));
+    openArea("Necessidades");
     expect(cancellations[0]).toHaveBeenCalledOnce();
     expect(prefetch).toHaveBeenLastCalledWith(
       PICTOGRAMS.filter((item) => NEEDS_PICTOGRAM_IDS.includes(item.id)).map(
@@ -275,7 +280,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     }
     fireEvent.click(screen.getByRole("button", { name: "Falar Olá" }));
     expect(screen.getByText(/limite de 13 símbolos/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Remover último" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ops, remover último" }));
     fireEvent.click(screen.getByRole("button", { name: "Falar Olá" }));
     fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
     vi.mocked(props.speech.speak).mock.lastCall?.[1]?.onStart?.();
@@ -343,7 +348,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     render(<CommunicationBoard {...props} catalog={CATALOG_PICTOGRAMS} settings={DEFAULT_BOARD_SETTINGS} />);
     expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(12);
     fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
-    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    openArea("Todas as categorias");
     fireEvent.click(screen.getByRole("button", { name: /^Animais$/ }));
     expect(screen.getByRole("button", { name: "Falar Gato" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" })).getByText("Água")).toBeInTheDocument();
@@ -360,7 +365,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
       category: "Pessoas", symbol: "", color: "#eee", source: "custom" as const, privateSpeech: true,
     };
     render(<CommunicationBoard {...props} catalog={[...PICTOGRAMS, custom]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Meus símbolos" }));
+    openArea("Meus símbolos");
     fireEvent.click(screen.getByRole("button", { name: "Falar Mamãe" }));
     fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
     expect(props.speech.speak).toHaveBeenLastCalledWith(custom.spokenText, {
@@ -387,9 +392,9 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(screen.getByText("Página 2 de 2")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" }))
       .getByText(ordered[0].label)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Necessidades" }));
-    expect(screen.queryByRole("button", { name: "Próxima página" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Início" }));
+    openArea("Necessidades");
+    expect(screen.getByRole("button", { name: "Próxima página" })).toBeDisabled();
+    openArea("Início");
     expect(screen.getByText("Página 1 de 2")).toBeInTheDocument();
   });
 
@@ -397,7 +402,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     const { props } = fixture();
     const quickPhrase = { id: "local", label: "Pergunta", text: "Quero perguntar uma coisa." };
     render(<CommunicationBoard {...props} settings={{ ...props.settings!, quickPhrases: [quickPhrase] }} />);
-    fireEvent.click(screen.getByRole("button", { name: "Frases rápidas" }));
+    openArea("Frases rápidas");
     fireEvent.click(screen.getByRole("button", { name: "Ouvir: Pergunta" }));
     expect(props.speech.speak).toHaveBeenCalledWith(quickPhrase.text, expect.objectContaining({ offlineOnly: true }));
     vi.mocked(props.speech.speak).mock.lastCall?.[1]?.onStart?.();
@@ -410,12 +415,12 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(props.onSelect).not.toHaveBeenCalled();
     expect(props.onPlayback).toHaveBeenCalledOnce();
   });
-  it("desfaz só a última figura com o botão Opa! e deixa a frase anterior intacta", () => {
+  it("desfaz só a última figura com o botão Ops e deixa a frase anterior intacta", () => {
     const { props } = fixture();
     render(<CommunicationBoard {...props} />);
-    const opa = screen.getByRole("button", { name: "Remover último" });
+    const opa = screen.getByRole("button", { name: "Ops, remover último" });
     expect(opa).toBeDisabled();
-    expect(opa).toHaveTextContent("Opa!");
+    expect(opa).toHaveTextContent("Ops");
 
     fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
     fireEvent.click(screen.getByRole("button", { name: "Falar Mais" }));
@@ -442,21 +447,67 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(props.onSelect).toHaveBeenCalledTimes(2);
   });
 
-  it("no modo criança mostra sempre os botões de página e esconde os controles de adulto", () => {
+  it("no modo criança mantém os três controles principais e esconde os controles de adulto", () => {
     const { props } = fixture();
     render(<CommunicationBoard {...props} isChildMode />);
-    expect(screen.getByRole("button", { name: "Página anterior" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Página anterior" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Próxima página" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Remover último" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ops, remover último" })).toBeInTheDocument();
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
     expect(screen.queryByRole("button", { name: /^Remover Água/ })).not.toBeInTheDocument();
   });
 
+  it("reúne todas as áreas dentro de Categorias e deixa somente três controles com pictograma e texto", () => {
+    const { props } = fixture();
+    render(<CommunicationBoard {...props} />);
+    expect(screen.queryByRole("group", { name: "Áreas da prancha" })).not.toBeInTheDocument();
+    const controls = within(screen.getByRole("group", { name: "Controles da prancha" }));
+    expect(controls.getAllByRole("button")).toHaveLength(3);
+    for (const name of ["Ops, remover último", "Próxima página", "Categorias"]) {
+      const button = controls.getByRole("button", { name });
+      expect(button.querySelector("svg")).not.toBeNull();
+      expect(button.textContent?.trim()).not.toBe("");
+    }
+    fireEvent.click(controls.getByRole("button", { name: "Categorias" }));
+    expect(controls.getByRole("button", { name: "Categorias" })).toHaveAttribute("aria-expanded", "true");
+    const areas = within(screen.getByRole("group", { name: "Áreas da prancha" }));
+    expect(areas.getAllByRole("button")).toHaveLength(8);
+    for (const name of ["Início", "Vocabulário essencial", "Necessidades", "Todas as categorias", "Saúde", "Favoritos", "Meus símbolos", "Frases rápidas"]) {
+      expect(areas.getByRole("button", { name })).toBeInTheDocument();
+    }
+    fireEvent.click(areas.getByRole("button", { name: "Início" }));
+    expect(screen.queryByRole("group", { name: "Áreas da prancha" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Falar Água" })).toBeInTheDocument();
+  });
+
+  it("fecha Categorias por Escape sem perder a página nem a frase e devolve o foco ao botão", async () => {
+    const { props } = fixture();
+    render(<CommunicationBoard {...props} settings={{ ...props.settings!, pageSize: 12 }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    expect(screen.getByRole("button", { name: "Próxima página" })).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole("group", { name: "Áreas da prancha" }), { key: "Escape" });
+    expect(screen.getByText("Página 2 de 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Página anterior" })).toBeEnabled();
+    expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" })).getByText("Água")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Categorias" })).toHaveFocus());
+    fireEvent.click(screen.getByRole("button", { name: "Página anterior" }));
+    expect(screen.getByText("Página 1 de 2")).toBeInTheDocument();
+  });
+
+  it("respeita a preferência de ocultar frases rápidas também dentro de Categorias", () => {
+    const { props } = fixture();
+    render(<CommunicationBoard {...props} settings={{ ...props.settings!, quickPhrasesEnabled: false }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    expect(within(screen.getByRole("group", { name: "Áreas da prancha" })).queryByRole("button", { name: "Frases rápidas" })).not.toBeInTheDocument();
+  });
+
   it("preserva a dica das categorias e registra somente o início da reprodução", () => {
     const { props } = fixture();
     render(<CommunicationBoard {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    openArea("Todas as categorias");
     fireEvent.click(screen.getByRole("button", { name: /Não está no meu livro/ }));
     expect(props.onSelect).not.toHaveBeenCalled();
     expect(props.onPlayback).not.toHaveBeenCalled();

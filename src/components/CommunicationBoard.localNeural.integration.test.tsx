@@ -145,6 +145,7 @@ describe("CommunicationBoard with local neural synthesis", () => {
     await playButton("Falar Mamãe");
     await playButton("Ouvir frase");
 
+    clickButton("Categorias");
     clickButton("Frases rápidas");
     await playButton("Ouvir: Teste de pausa");
 
@@ -206,6 +207,7 @@ describe("CommunicationBoard with local neural synthesis", () => {
       throw new Error("Internal diagnostic with untrusted patient text");
     });
     render(<BoardFixture voiceURI={edresson} rate={1.1} />);
+    clickButton("Categorias");
     clickButton("Frases rápidas");
     clickButton("Ouvir: Teste de pausa");
 

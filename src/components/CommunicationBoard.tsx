@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
-  ArrowLeft, Camera, Check, ChevronLeft, ChevronRight, Droplets, House, LayoutGrid, LockKeyhole,
+  ArrowLeft, Camera, Check, ChevronLeft, ChevronRight, Droplets, FolderOpen, House, LayoutGrid, LockKeyhole,
   MessageCircle, Plus, Pointer, Search, Sparkles, Square, Star, Stethoscope, Trash2, Undo2, Volume2, X,
   type LucideIcon,
 } from "lucide-react";
@@ -96,6 +96,9 @@ export function CommunicationBoard({
   const [selectedView, setView] = useState<View>("home");
   const view = selectedView === "quick" && !settings.quickPhrasesEnabled ? "home" : selectedView;
   const [selectedCategory, setCategory] = useState("");
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const categoryMenuId = useId();
+  const categoriesButton = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState(0);
   const [sentence, setSentence] = useState<Pictogram[]>([]);
   const [lastSelected, setLastSelected] = useState<string | null>(null);
@@ -182,10 +185,24 @@ export function CommunicationBoard({
   }, [spokenWords, canPrepare, prepareSentence, voiceURI, rate]);
 
   function open(next: View) {
+    setCategoriesOpen(false);
     setView(next);
     setCategory("");
     setQuery("");
     setPage(0);
+  }
+
+  function closeCategories() {
+    setCategoriesOpen(false);
+    requestAnimationFrame(() => categoriesButton.current?.focus());
+  }
+
+  function toggleCategories() {
+    if (categoriesOpen) closeCategories();
+    else {
+      setCategoriesOpen(true);
+      requestAnimationFrame(() => categoryHeading.current?.focus());
+    }
   }
 
   function playMessage(segments: readonly string[]) {
@@ -260,7 +277,7 @@ export function CommunicationBoard({
     return images;
   }, [catalog]);
 
-  /** "Opa!": a criança tocou na figura errada — tira a última figura e sacode a tira da frase. */
+  /** "Ops": desfaz somente a última figura escolhida. */
   function oops() {
     if (!sentence.length) return;
     remove(sentence.length - 1);
@@ -280,7 +297,6 @@ export function CommunicationBoard({
   const imageSize = isChildMode && settings.imageSize !== "large" ? "regular" : settings.imageSize;
 
   const labelSize = isChildMode && settings.labelSize === "regular" ? "large" : settings.labelSize;
-  const showPageButtons = isChildMode || pageCount > 1;
   const visibleViews = VIEWS.filter(([key]) => key !== "quick" || settings.quickPhrasesEnabled);
 
   return (
@@ -359,7 +375,7 @@ export function CommunicationBoard({
           <label htmlFor="symbol-search" className="sr-only">Buscar símbolo</label>
           <input id="symbol-search" type="search" className="input-field min-h-11 py-1 pl-9"
             placeholder="Buscar símbolo…" value={query}
-            onChange={(event) => { setQuery(event.target.value); setPage(0); }} />
+            onChange={(event) => { setQuery(event.target.value); setCategoriesOpen(false); setPage(0); }} />
         </div>
         {onStartCommunication && <button type="button" className="board-control ml-auto"
           aria-label="Iniciar modo comunicação" disabled={modePending} onClick={onStartCommunication}>
@@ -368,20 +384,41 @@ export function CommunicationBoard({
       </div>}
 
       <div className="kid-body">
-        <section aria-labelledby="symbols-title" className="kid-cards">
-          <div className={category && !activeQuery ? "flex flex-wrap items-center gap-2" : undefined}>
-            {!activeQuery && usingCategory && category && (
+        <section aria-labelledby="symbols-title" className="kid-cards"
+          onKeyDown={(event) => { if (categoriesOpen && event.key === "Escape") { event.preventDefault(); closeCategories(); } }}>
+          <div className="flex flex-wrap items-center gap-2">
+            {categoriesOpen && <button type="button" className="kid-back" onClick={closeCategories}>
+              <ArrowLeft size={22} aria-hidden="true" /> Voltar à prancha
+            </button>}
+            {!categoriesOpen && !activeQuery && usingCategory && category && (
               <button type="button" className="kid-back"
                 onClick={() => { open(view); requestAnimationFrame(() => categoryHeading.current?.focus()); }}>
                 <ArrowLeft size={22} aria-hidden="true" /> Voltar às categorias
               </button>
             )}
             <h2 ref={categoryHeading} id="symbols-title" tabIndex={-1}
-              className={category || activeQuery ? "break-words text-xl font-bold" : "sr-only"}>
-              {sectionTitle}
+              className={categoriesOpen || category || activeQuery ? "break-words text-xl font-bold" : "sr-only"}>
+              {categoriesOpen ? "Categorias" : sectionTitle}
             </h2>
+            {!categoriesOpen && !showingGroups && visiblePage > 0 && <button type="button" className="board-control ml-auto"
+              onClick={() => setPage(visiblePage - 1)} aria-label="Página anterior">
+              <ChevronLeft size={24} aria-hidden="true" /> Página anterior
+            </button>}
           </div>
 
+          {categoriesOpen ? <div role="group" aria-label="Áreas da prancha" id={categoryMenuId} className="kid-area-grid">
+            {visibleViews.map(([key, label, shortLabel]) => {
+              const { Icon, ...tone } = VIEW_STYLE[key];
+              const on = !activeQuery && view === key;
+              const areaLabel = key === "categories" ? "Todas as categorias" : label;
+              return <button type="button" key={key} aria-pressed={on} aria-label={areaLabel}
+                className={on ? "kid-tab kid-tab-on" : "kid-tab"} style={colorVars(tone)}
+                onClick={() => { open(key); requestAnimationFrame(() => categoryHeading.current?.focus()); }}>
+                <Icon size={48} aria-hidden="true" />
+                <span>{key === "categories" ? areaLabel : shortLabel ?? label}</span>
+              </button>;
+            })}
+          </div> : <>
           {!activeQuery && view === "categories" && <button type="button" className="board-control self-start"
             disabled={!speech.supported} onClick={() => playMessage(["Não está no meu livro, mas vou dar uma dica"])}>
             <MessageCircle size={20} aria-hidden="true" /> Não está no meu livro, mas vou dar uma dica
@@ -444,36 +481,24 @@ export function CommunicationBoard({
           {sentence.length > 0 && !isChildMode && <div className="flex justify-end">
             <button type="button" className="board-control" onClick={() => composerHeading.current?.focus()}>Voltar à frase</button>
           </div>}
+          </>}
         </section>
-
-        <div role="group" aria-label="Áreas da prancha" className="kid-tabs">
-          {visibleViews.map(([key, label, shortLabel]) => {
-            const { Icon, ...tone } = VIEW_STYLE[key];
-            const on = !activeQuery && view === key;
-            return <button type="button" key={key} aria-pressed={on} aria-label={label}
-              className={on ? "kid-tab kid-tab-on" : "kid-tab"} style={colorVars(tone)}
-              onClick={() => open(key)}>
-              <Icon size={30} aria-hidden="true" />
-              <span>{shortLabel ?? label}</span>
-            </button>;
-          })}
-        </div>
       </div>
 
       <div role="group" aria-label="Controles da prancha" className="kid-dock">
-        {showPageButtons && <button type="button" className="kid-dock-btn kid-page" disabled={visiblePage === 0}
-          onClick={() => setPage(visiblePage - 1)} aria-label="Página anterior">
-          <ChevronLeft size={44} strokeWidth={4} aria-hidden="true" /> <span>Anterior</span>
-        </button>}
         <button type="button" className="kid-dock-btn kid-oops-btn" disabled={!sentence.length}
-          aria-label="Remover último" onClick={oops}>
-          <Undo2 size={40} strokeWidth={3.5} aria-hidden="true" /> <span>Opa!</span>
+          aria-label="Ops, remover último" onClick={oops}>
+          <Undo2 size={44} strokeWidth={3.5} aria-hidden="true" /> <span>Ops</span>
         </button>
-        {showPageButtons && <button type="button" className="kid-dock-btn kid-page" disabled={visiblePage === pageCount - 1}
+        <button type="button" className="kid-dock-btn kid-page" disabled={categoriesOpen || showingGroups || visiblePage === pageCount - 1}
           onClick={() => setPage(visiblePage + 1)} aria-label="Próxima página">
-          <span>Próxima</span> <ChevronRight size={44} strokeWidth={4} aria-hidden="true" />
-        </button>}
-        {pageCount > 1 && <>
+          <ChevronRight size={44} strokeWidth={4} aria-hidden="true" /> <span>Próxima página</span>
+        </button>
+        <button ref={categoriesButton} type="button" className="kid-dock-btn kid-categories-btn"
+          aria-expanded={categoriesOpen} aria-controls={categoryMenuId} onClick={toggleCategories}>
+          <FolderOpen size={44} strokeWidth={3} aria-hidden="true" /> <span>Categorias</span>
+        </button>
+        {!categoriesOpen && !showingGroups && pageCount > 1 && <>
           <span role="status" className={isChildMode ? "sr-only" : "kid-dock-status"}>Página {visiblePage + 1} de {pageCount}</span>
           {isChildMode && <span className="kid-dots" aria-hidden="true">
             {Array.from({ length: pageCount }, (_, dot) => <i key={dot} className={dot === visiblePage ? "on" : ""} />)}
