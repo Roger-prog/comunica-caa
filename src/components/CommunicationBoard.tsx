@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
-  ArrowLeft, Camera, Check, ChevronLeft, ChevronRight, Droplets, FolderOpen, House, LayoutGrid, LockKeyhole,
-  MessageCircle, Plus, Pointer, Search, Sparkles, Square, Star, Stethoscope, Trash2, Undo2, Volume2, X,
+  ArrowLeft, Camera, Check, Droplets, House, LayoutGrid, LockKeyhole,
+  MessageCircle, Plus, Pointer, Search, Sparkles, Square, Star, Stethoscope, Trash2, Volume2, X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -22,6 +22,7 @@ import { DEFAULT_BOARD_SETTINGS, type BoardQuickPhrase, type BoardSettings } fro
 import { PictogramPicture } from "./PictogramPicture";
 import { SpeechFeedback } from "./SpeechFeedback";
 import { LibrasPanel } from "./LibrasPanel";
+import { CategoriesPictogram, OopsPictogram, PagePictogram } from "./ControlPictograms";
 
 interface CommunicationBoardProps {
   onSelect: (pictogram: Pictogram) => void;
@@ -402,7 +403,7 @@ export function CommunicationBoard({
             </h2>
             {!categoriesOpen && !showingGroups && visiblePage > 0 && <button type="button" className="board-control ml-auto"
               onClick={() => setPage(visiblePage - 1)} aria-label="Página anterior">
-              <ChevronLeft size={24} aria-hidden="true" /> Página anterior
+              <PagePictogram direction="previous" className="kid-previous-pictogram" /> Página anterior
             </button>}
           </div>
 
@@ -488,15 +489,15 @@ export function CommunicationBoard({
       <div role="group" aria-label="Controles da prancha" className="kid-dock">
         <button type="button" className="kid-dock-btn kid-oops-btn" disabled={!sentence.length}
           aria-label="Ops, remover último" onClick={oops}>
-          <Undo2 size={44} strokeWidth={3.5} aria-hidden="true" /> <span>Ops</span>
+          <OopsPictogram className="kid-control-pictogram" /> <span className="kid-control-label">Ops</span>
         </button>
         <button type="button" className="kid-dock-btn kid-page" disabled={categoriesOpen || showingGroups || visiblePage === pageCount - 1}
           onClick={() => setPage(visiblePage + 1)} aria-label="Próxima página">
-          <ChevronRight size={44} strokeWidth={4} aria-hidden="true" /> <span>Próxima página</span>
+          <PagePictogram className="kid-control-pictogram" /> <span className="kid-control-label">Próxima página</span>
         </button>
         <button ref={categoriesButton} type="button" className="kid-dock-btn kid-categories-btn"
-          aria-expanded={categoriesOpen} aria-controls={categoryMenuId} onClick={toggleCategories}>
-          <FolderOpen size={44} strokeWidth={3} aria-hidden="true" /> <span>Categorias</span>
+          aria-label="Categorias" aria-expanded={categoriesOpen} aria-controls={categoryMenuId} onClick={toggleCategories}>
+          <CategoriesPictogram className="kid-control-pictogram" /> <span className="kid-control-label">Categorias</span>
         </button>
         {!categoriesOpen && !showingGroups && pageCount > 1 && <>
           <span role="status" className={isChildMode ? "sr-only" : "kid-dock-status"}>Página {visiblePage + 1} de {pageCount}</span>

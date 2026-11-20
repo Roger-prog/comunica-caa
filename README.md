@@ -11,7 +11,7 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 ## Prancha de comunicação
 
 - Prancha visual com figuras ampliadas e respostas Sim/Não. As áreas Início, Essencial, Necessidades, Saúde, Favoritos, Meus símbolos e Frases rápidas ficam reunidas em “Categorias”.
-- Controles principais “Ops”, “Próxima página” e “Categorias”, todos com pictograma e texto. “Ops” desfaz somente a última escolha, e trocar de área preserva a frase montada.
+- Controles principais com desenhos grandes e coloridos: rostinho surpreso em “Ops”, folha com seta em “Próxima página” e pasta com cartões em “Categorias”. Os desenhos estão incluídos na aplicação, e o texto serve de apoio. “Ops” desfaz somente a última escolha, e trocar de área preserva a frase montada.
 - Estilos da prancha isolados para preservar as fontes, a paleta e o modo escuro das demais telas. O alto contraste mantém os estados de seleção distinguíveis.
 - 418 entradas reunindo o vocabulário de CAA, os símbolos originais e os grupos de apoio à teleconsulta.
 - Tela inicial configurável, categorias ilustradas e comandos para voltar, desfazer a última escolha e oferecer uma dica.
