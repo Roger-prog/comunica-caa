@@ -12,18 +12,30 @@ export function AccountOptions({ user, signOut }: { user: AuthUser; signOut: () 
   const [notice, setNotice] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    if (user.role === "fonoaudiologo" && supabase) {
-      void supabase.from("caa_profiles").select("professional_category").eq("id", user.id)
-        .abortSignal(controller.signal).single().then(({ data, error }) => {
-          if (controller.signal.aborted) return;
-          if (error) setNotice("Não foi possível carregar a categoria profissional.");
-          else { setCategory(data.professional_category ?? ""); setReady(true); }
-        });
+    setReady(false);
+    setConfirmation(false);
+    setEmail("");
+    setNotice("");
+    async function load() {
+      if (!supabase) return;
+      try {
+        // Migration 009 adds the column and account RPC in one transaction.
+        // Keep the additional controls unavailable until that schema is ready.
+        const { data, error } = await supabase.from("caa_profiles").select("professional_category").eq("id", user.id)
+          .abortSignal(controller.signal).single();
+        if (controller.signal.aborted) return;
+        if (error || !data) throw error;
+        setCategory(data.professional_category ?? "");
+        setReady(true);
+      } catch {
+        if (!controller.signal.aborted) setNotice("As opções de conta estão temporariamente indisponíveis. Tente novamente mais tarde.");
+      }
     }
+    void load();
     return () => controller.abort();
   }, [user.id, user.role]);
   async function save(value: string) {
-    if (!supabase || busy) return;
+    if (!supabase || !ready || busy) return;
     setBusy(true);
     try {
       const { error } = await supabase.from("caa_profiles").update({ professional_category: value || null })
@@ -35,7 +47,7 @@ export function AccountOptions({ user, signOut }: { user: AuthUser; signOut: () 
     finally { setBusy(false); }
   }
   async function remove() {
-    if (!supabase || busy || email.trim() !== user.email) return;
+    if (!supabase || !ready || busy || email.trim() !== user.email) return;
     setBusy(true);
     try {
       const { error } = await supabase.rpc("delete_own_caa_account", { p_expected_user_id: user.id });
@@ -48,6 +60,7 @@ export function AccountOptions({ user, signOut }: { user: AuthUser; signOut: () 
     try { await signOut(); } catch { /* The server has already deleted the session owner. */ }
     window.location.replace("/login");
   }
+  if (!ready) return notice ? <p className="mt-4 text-sm" role="status">{notice}</p> : null;
   return <div className="mt-4 space-y-3">
     {user.role === "fonoaudiologo" && <label className="grid gap-2">Categoria profissional
       <select className="input-field" value={category} disabled={!ready || busy} onChange={event => void save(event.target.value)}>
