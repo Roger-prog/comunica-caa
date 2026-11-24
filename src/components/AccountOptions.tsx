@@ -1,77 +1,127 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { AccountRole, AuthUser } from "../auth/authTypes";
+import { emptyProfession, ProfessionalFields } from "../auth/ProfessionalFields";
+import type { AccountOptionsRow } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
-import type { AuthUser } from "../auth/authTypes";
+import { AccountDeletion } from "./AccountDeletion";
 
-const categories = ["Fonoaudiólogo", "Terapeuta ocupacional", "Professor", "Outro profissional"];
-export function AccountOptions({ user, signOut }: { user: AuthUser; signOut: () => Promise<void> }) {
-  const [category, setCategory] = useState("");
-  const [ready, setReady] = useState(false);
-  const [confirmation, setConfirmation] = useState(false);
-  const [email, setEmail] = useState("");
+const roleNames = { responsavel: "Responsável", fonoaudiologo: "Fonoaudiólogo / Profissional" };
+
+export function AccountOptions({ user, signOut, onRoleChanged }: {
+  user: AuthUser;
+  signOut: () => Promise<void>;
+  onRoleChanged: () => Promise<void>;
+}) {
+  const [options, setOptions] = useState<AccountOptionsRow | null>(null);
+  const [profession, setProfession] = useState(emptyProfession);
+  const [requesting, setRequesting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (!supabase) return;
+    let query = supabase.rpc("get_caa_account_options");
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query.single();
+    if (signal?.aborted) return;
+    if (error || !data) throw error ?? new Error("account_options");
+    setOptions(data);
+    setProfession({ category: data.professional_category ?? "", registration: data.professional_registration ?? "" });
+  }, [user.id]);
+
   useEffect(() => {
     const controller = new AbortController();
-    setReady(false);
-    setConfirmation(false);
-    setEmail("");
-    setNotice("");
-    async function load() {
-      if (!supabase) return;
-      try {
-        // Migration 009 adds the column and account RPC in one transaction.
-        // Keep the additional controls unavailable until that schema is ready.
-        const { data, error } = await supabase.from("caa_profiles").select("professional_category").eq("id", user.id)
-          .abortSignal(controller.signal).single();
-        if (controller.signal.aborted) return;
-        if (error || !data) throw error;
-        setCategory(data.professional_category ?? "");
-        setReady(true);
-      } catch {
-        if (!controller.signal.aborted) setNotice("As opções de conta estão temporariamente indisponíveis. Tente novamente mais tarde.");
-      }
-    }
-    void load();
+    void load(controller.signal).catch(() => {
+      if (!controller.signal.aborted) setNotice("As opções de perfil estão temporariamente indisponíveis.");
+    });
     return () => controller.abort();
-  }, [user.id, user.role]);
-  async function save(value: string) {
-    if (!supabase || !ready || busy) return;
+  }, [load]);
+
+  async function switchRole(role: AccountRole) {
+    if (!supabase || busy || !options?.roles.includes(role) || role === user.role) return;
     setBusy(true);
+    setNotice("");
     try {
-      const { error } = await supabase.from("caa_profiles").update({ professional_category: value || null })
-        .eq("id", user.id).select("id").single();
+      const { error } = await supabase.rpc("switch_caa_account_role", { p_expected_user_id: user.id, p_role: role });
       if (error) throw error;
-      setCategory(value);
-      setNotice("Categoria salva.");
-    } catch { setNotice("Não foi possível salvar a categoria."); }
-    finally { setBusy(false); }
-  }
-  async function remove() {
-    if (!supabase || !ready || busy || email.trim() !== user.email) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase.rpc("delete_own_caa_account", { p_expected_user_id: user.id });
-      if (error) throw error;
+      await onRoleChanged();
     } catch {
-      setNotice("Não foi possível excluir a conta. Confira se existem fotos vinculadas e tente novamente.");
-      setBusy(false);
-      return;
-    }
-    try { await signOut(); } catch { /* The server has already deleted the session owner. */ }
-    window.location.replace("/login");
+      setNotice("Não foi possível trocar o perfil. Tente novamente.");
+    } finally { setBusy(false); }
   }
-  if (!ready) return notice ? <p className="mt-4 text-sm" role="status">{notice}</p> : null;
-  return <div className="mt-4 space-y-3">
-    {user.role === "fonoaudiologo" && <label className="grid gap-2">Categoria profissional
-      <select className="input-field" value={category} disabled={!ready || busy} onChange={event => void save(event.target.value)}>
-        <option value="">Selecione</option>{categories.map(value => <option key={value}>{value}</option>)}
-      </select></label>}
-    {!confirmation ? <button className="button-secondary" onClick={() => setConfirmation(true)}>Excluir conta</button> :
-      <div className="space-y-2"><p>A exclusão é definitiva. Os perfis de crianças desta conta, seus registros e vínculos serão removidos.</p>
-        <label className="grid gap-2">Digite seu e-mail para confirmar<input className="input-field" value={email} type="email" onChange={event => setEmail(event.target.value)} /></label>
-        <div className="flex flex-wrap gap-2"><button className="button-secondary" disabled={busy} onClick={() => { setConfirmation(false); setEmail(""); }}>Cancelar</button>
-        <button className="button-secondary text-red-800" disabled={busy || email.trim() !== user.email} onClick={() => void remove()}>Excluir definitivamente</button></div>
-      </div>}
+
+  async function requestRole(role: AccountRole) {
+    if (!supabase || busy) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const { error } = await supabase.rpc("request_caa_account_role", {
+        p_expected_user_id: user.id, p_role: role,
+        p_category: role === "fonoaudiologo" ? profession.category : null,
+        p_registration: role === "fonoaudiologo" ? profession.registration.trim() || null : null,
+      });
+      if (error) throw error;
+      await load();
+      setRequesting(false);
+      setNotice(role === "fonoaudiologo" ? "Solicitação enviada para validação." : "Perfil de responsável habilitado.");
+    } catch {
+      setNotice("Não foi possível atualizar os tipos de perfil. Tente novamente.");
+    } finally { setBusy(false); }
+  }
+
+  async function saveProfession() {
+    if (!supabase || busy) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      const { error } = await supabase.from("caa_profiles").update({
+        professional_category: profession.category || null,
+        professional_registration: profession.registration.trim() || null,
+      }).eq("id", user.id).select("id").single();
+      if (error) throw error;
+      await load();
+      setNotice("Dados profissionais salvos.");
+    } catch {
+      setNotice("Não foi possível salvar os dados profissionais.");
+    } finally { setBusy(false); }
+  }
+
+  return <div className="mt-4 space-y-6">
+    {options && user.role && <div className="space-y-3">
+      <h3 className="font-semibold">Tipo de perfil</h3>
+      <label className="grid gap-2 text-sm font-medium">
+        Perfil em uso
+        <select className="input-field" value={user.role} disabled={busy || options.roles.length < 2}
+          onChange={(event) => void switchRole(event.target.value as AccountRole)}>
+          {options.roles.map((role) => <option key={role} value={role}>{roleNames[role]}</option>)}
+        </select>
+      </label>
+      {!options.roles.includes("responsavel") && <button type="button" className="button-secondary"
+        disabled={busy} onClick={() => void requestRole("responsavel")}>Habilitar perfil de responsável</button>}
+      {!options.roles.includes("fonoaudiologo") && (options.professional_pending
+        ? <p className="text-sm">Solicitação profissional em validação.</p>
+        : <button type="button" className="button-secondary" disabled={busy} aria-expanded={requesting}
+          onClick={() => setRequesting((current) => !current)}>Solicitar perfil profissional</button>)}
+      {(requesting || user.role === "fonoaudiologo") && <form className="space-y-3" onSubmit={(event) => {
+        event.preventDefault();
+        if (requesting) void requestRole("fonoaudiologo");
+        else void saveProfession();
+      }}>
+        <ProfessionalFields value={profession} onChange={setProfession} disabled={busy} />
+        {user.role === "fonoaudiologo" && <p className="text-sm text-stone-600">
+          {options.professional_pending ? "Categoria em validação"
+            : options.professional_validated ? "Categoria validada" : "Categoria declarada"}
+        </p>}
+        <button type="submit" className="button-secondary"
+          disabled={busy || options.professional_pending || (requesting && !profession.category)}>
+          {requesting ? "Enviar para validação" : "Salvar dados profissionais"}
+        </button>
+        {user.role === "fonoaudiologo" && !options.professional_validated && !options.professional_pending
+          && <button type="button" className="button-secondary ml-2" disabled={busy || !profession.category}
+            onClick={() => void requestRole("fonoaudiologo")}>Solicitar validação profissional</button>}
+      </form>}
+    </div>}
     {notice && <p role="status">{notice}</p>}
+    <AccountDeletion user={user} signOut={signOut} />
   </div>;
 }

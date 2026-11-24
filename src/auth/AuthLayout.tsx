@@ -198,7 +198,7 @@ export function RoleFields({
           ],
           [
             "fonoaudiologo",
-            "Fonoaudiólogo",
+            "Fonoaudiólogo / Profissional",
             "Acompanha pacientes vinculados por convite e gera relatórios.",
           ],
         ] as const

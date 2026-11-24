@@ -148,7 +148,16 @@ export async function revokeMember(
   if (error) throw generic();
 }
 
-export async function redeemInvitation(code: string): Promise<void> {
+export async function approveProfessionalMember(id: string, professionalId: string): Promise<void> {
+  patientId(id);
+  patientId(professionalId);
+  const { data, error } = await client().rpc("approve_caa_professional_member", {
+    p_crianca_id: id, p_professional_id: professionalId,
+  });
+  if (error || !data) throw generic();
+}
+
+export async function redeemInvitation(code: string): Promise<"pending" | void> {
   if (!numericCode(code))
     throw new ProfessionalError("Informe os seis dígitos do convite.");
   const { data, error } = await client()
@@ -161,6 +170,7 @@ export async function redeemInvitation(code: string): Promise<void> {
       `Limite de tentativas atingido. Aguarde ${minutes} minuto(s) antes de tentar novamente.`,
     );
   }
+  if (data.status === "pending") return "pending";
   if (!["linked", "already_linked"].includes(data.status))
     throw new ProfessionalError("Código inválido, expirado ou já utilizado.");
 }

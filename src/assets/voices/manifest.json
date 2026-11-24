@@ -57,7 +57,8 @@
     "rapida-pergunta": "Quero fazer uma pergunta.",
     "rapida-medo": "Estou com medo.",
     "rapida-pausa": "Preciso de uma pausa.",
-    "rapida-responsavel": "Quero falar com meu responsável."
+    "rapida-responsavel": "Quero falar com meu responsável.",
+    "dica-categorias": "Não está no meu livro, mas vou dar uma dica"
   },
   "clips": [
     {
@@ -124,6 +125,11 @@
       "file": "src/assets/voices/antonio/desenhar.mp3",
       "bytes": 10700,
       "sha256": "f637984de241cf83bfda0ef6c5a6c60fc0c8e6315bac0601be4082051f9c35dc"
+    },
+    {
+      "file": "src/assets/voices/antonio/dica-categorias.mp3",
+      "bytes": 20924,
+      "sha256": "3e3e1a471f32ffb002cd9fc2ebcba838cd7ee6a96a89cea4703adc8068608778"
     },
     {
       "file": "src/assets/voices/antonio/dor.mp3",
@@ -384,6 +390,11 @@
       "file": "src/assets/voices/francisca/desenhar.mp3",
       "bytes": 10700,
       "sha256": "ba52360600ee5023dfbdeed78ba835d638584b9e40c157bdfde12a1fe9e36963"
+    },
+    {
+      "file": "src/assets/voices/francisca/dica-categorias.mp3",
+      "bytes": 19628,
+      "sha256": "ae9a02bf6390309c519bf7560a24acef67023c4f85c6b8bb3fbfa3b4ca0259a3"
     },
     {
       "file": "src/assets/voices/francisca/dor.mp3",

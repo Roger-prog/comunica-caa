@@ -6,6 +6,8 @@ export type Profile = {
   nome: string;
   role: AccountRole | null;
   professional_category?: string | null;
+  professional_registration?: string | null;
+  professional_validated_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -52,6 +54,36 @@ export type ProfessionalMember = {
   professional_name: string;
   created_at: string;
   board_access?: boolean;
+  professional_category?: string | null;
+  professional_validated?: boolean;
+  approved_at?: string | null;
+};
+
+export type AccountDeletionPatient = {
+  patient_id: string;
+  patient_name: string;
+  successor_id: string | null;
+  successor_name: string | null;
+};
+
+export type AccountDeletionPreview = {
+  reauth_required: boolean;
+  review_reason: "patient_care" | "storage" | null;
+  review_requested_at: string | null;
+  patients: AccountDeletionPatient[];
+};
+export type GuardianAccess = { is_owner: boolean; can_edit: boolean; can_manage_links: boolean };
+export type GuardianMember = GuardianAccess & {
+  guardian_id: string;
+  guardian_name: string;
+  created_at: string;
+};
+export type AccountOptionsRow = {
+  roles: AccountRole[];
+  professional_pending: boolean;
+  professional_category: string | null;
+  professional_registration: string | null;
+  professional_validated: boolean;
 };
 
 export type Database = {
@@ -60,7 +92,7 @@ export type Database = {
       caa_profiles: {
         Row: Profile;
         Insert: never;
-        Update: { nome?: string; professional_category?: string | null };
+        Update: { nome?: string; professional_category?: string | null; professional_registration?: string | null };
         Relationships: [];
       };
       criancas: {
@@ -136,7 +168,94 @@ export type Database = {
       caa_events: { Row: Comunicacao; Relationships: [] };
     };
     Functions: {
-      delete_own_caa_account: { Args: { p_expected_user_id: string }; Returns: undefined };
+      get_caa_pronunciation_settings: {
+        Args: { p_crianca_id: string };
+        Returns: { can_read: boolean; can_record: boolean; can_manage: boolean; retention_days: number | null }[];
+      };
+      list_caa_pronunciation_access: {
+        Args: { p_crianca_id: string };
+        Returns: { professional_id: string; professional_name: string; can_listen: boolean; can_observe: boolean }[];
+      };
+      set_caa_pronunciation_access: {
+        Args: { p_crianca_id: string; p_professional_id: string; p_can_listen: boolean; p_can_observe: boolean };
+        Returns: undefined;
+      };
+      set_caa_pronunciation_retention: {
+        Args: { p_crianca_id: string; p_days: number };
+        Returns: undefined;
+      };
+      save_caa_pronunciation: {
+        Args: {
+          p_crianca_id: string; p_id: string; p_practice: string; p_content_type: string;
+          p_audio_base64: string; p_authorized: boolean;
+        };
+        Returns: string;
+      };
+      list_caa_pronunciation: {
+        Args: { p_crianca_id: string; p_before_time: string | null; p_before_id: string | null };
+        Returns: { id: string; practice: string; created_at: string; expires_at: string; can_delete: boolean; can_observe: boolean }[];
+      };
+      get_caa_pronunciation_audio: {
+        Args: { p_id: string };
+        Returns: { mime_type: string; audio_base64: string }[];
+      };
+      list_caa_pronunciation_notes: {
+        Args: { p_id: string };
+        Returns: { id: string; author_name: string; observation: string; updated_at: string; own: boolean }[];
+      };
+      save_caa_pronunciation_note: {
+        Args: { p_id: string; p_observation: string };
+        Returns: undefined;
+      };
+      delete_caa_pronunciation: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      get_caa_account_options: { Args: never; Returns: AccountOptionsRow[] };
+      switch_caa_account_role: { Args: { p_expected_user_id: string; p_role: AccountRole }; Returns: undefined };
+      request_caa_account_role: {
+        Args: { p_expected_user_id: string; p_role: AccountRole; p_category: string | null; p_registration: string | null };
+        Returns: undefined;
+      };
+      get_caa_guardian_access: { Args: { p_crianca_id: string }; Returns: GuardianAccess[] };
+      list_caa_guardians: { Args: { p_crianca_id: string }; Returns: GuardianMember[] };
+      create_caa_guardian_invitation: {
+        Args: { p_crianca_id: string; p_email: string };
+        Returns: { code: string; expires_at: string }[];
+      };
+      redeem_caa_guardian_invitation: { Args: { p_code: string }; Returns: string | null };
+      set_caa_guardian_permissions: {
+        Args: { p_crianca_id: string; p_guardian_id: string; p_can_edit: boolean; p_can_manage_links: boolean };
+        Returns: boolean;
+      };
+      revoke_caa_guardian: { Args: { p_crianca_id: string; p_guardian_id: string }; Returns: boolean };
+      approve_caa_professional_member: { Args: { p_crianca_id: string; p_professional_id: string }; Returns: boolean };
+      complete_caa_profile_with_profession: {
+        Args: { p_nome: string; p_consent: boolean; p_expected_user_id: string; p_category: string; p_registration: string | null };
+        Returns: undefined;
+      };
+      query_caa_history: {
+        Args: {
+          p_crianca_id: string;
+          p_from: string | null;
+          p_to: string | null;
+          p_event_type: string | null;
+          p_search: string;
+          p_before_time: string | null;
+          p_before_id: string | null;
+        };
+        Returns: Comunicacao[];
+      };
+      preview_caa_account_deletion: { Args: { p_expected_user_id: string }; Returns: AccountDeletionPreview[] };
+      confirm_caa_account_deletion: {
+        Args: {
+          p_expected_user_id: string;
+          p_confirmation: string;
+          p_expected_plan: AccountDeletionPatient[];
+          p_expected_review_reason: string | null;
+        };
+        Returns: "deleted" | "reauth_required" | "plan_changed" | "review_requested";
+      };
       complete_caa_profile: {
         Args: {
           p_role: AccountRole;

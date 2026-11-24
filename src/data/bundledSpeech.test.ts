@@ -6,6 +6,7 @@ import { getBundledSpeechAudio } from "./bundledSpeech";
 import { CATALOG_PICTOGRAMS, PICTOGRAMS, getPictogramSpeech } from "./pictograms";
 import manifest from "../assets/voices/manifest.json";
 import quickPhrases from "./default-quick-phrases.json";
+import boardControlPhrases from "./board-control-phrases.json";
 
 const assetsRoot = resolve(process.cwd(), "src/assets/voices");
 const voices = [
@@ -13,15 +14,16 @@ const voices = [
   ["antonio", "pt-BR-AntonioNeural"],
 ] as const;
 const bundledSymbols = Object.entries(manifest.labels).map(([id, label]) => ({ id, label }));
+const publicPhrases = [...quickPhrases, ...Object.values(boardControlPhrases)];
 
 describe("bundledSpeech: public neural vocabulary", () => {
   it.each(voices)("provides every symbol synchronously in %s without a request", (folder, voice) => {
     expect(bundledSymbols.map((item) => item.id)).toEqual(expect.arrayContaining(
-      PICTOGRAMS.map((item) => item.id),
+      [...PICTOGRAMS, ...publicPhrases].map((item) => item.id),
     ));
     for (const symbol of bundledSymbols) {
       const pictogram = CATALOG_PICTOGRAMS.find((item) => item.id === symbol.id);
-      expect(pictogram ? getPictogramSpeech(pictogram) : quickPhrases.find((phrase) => phrase.id === symbol.id)?.text)
+      expect(pictogram ? getPictogramSpeech(pictogram) : publicPhrases.find((phrase) => phrase.id === symbol.id)?.text)
         .toBe(symbol.label);
       const blob = getBundledSpeechAudio(symbol.label, voice);
       expect(blob, symbol.label).toBeInstanceOf(Blob);

@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { AccountRole, AuthUser } from "./authTypes";
+import type { Profession } from "./ProfessionalFields";
 
 export type SignUpResult = "signed-in" | "confirmation-required";
 
@@ -18,6 +19,7 @@ export interface AuthContextValue {
     password: string,
     consent: boolean,
     role: AccountRole,
+    profession?: Profession,
   ) => Promise<SignUpResult>;
   signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -26,6 +28,7 @@ export interface AuthContextValue {
     role: AccountRole,
     nome: string,
     consent: boolean,
+    profession?: Profession,
   ) => Promise<void>;
   signOut: () => Promise<void>;
   retrySession: () => Promise<void>;

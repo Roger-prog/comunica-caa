@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PatientInvitation } from "./PatientInvitation";
 import type { Crianca } from "../lib/database.types";
 import {
+  approveProfessionalMember,
   createInvitation,
   listGuardianMembers,
   revokeMember,
@@ -17,6 +18,7 @@ import {
 
 vi.mock("../lib/professional", async (original) => ({
   ...(await original<typeof import("../lib/professional")>()),
+  approveProfessionalMember: vi.fn(),
   createInvitation: vi.fn(),
   listGuardianMembers: vi.fn(),
   revokeMember: vi.fn(),
@@ -38,6 +40,7 @@ const invitation = {
   created_at: "2026-11-02T12:00:00Z",
 };
 beforeEach(() => {
+  vi.mocked(approveProfessionalMember).mockReset().mockResolvedValue();
   vi.mocked(createInvitation).mockReset();
   vi.mocked(listGuardianMembers).mockReset().mockResolvedValue([]);
   vi.mocked(revokeMember).mockReset().mockResolvedValue();
@@ -139,5 +142,22 @@ describe("Convite do responsável", () => {
     expect(await screen.findByText("Acesso ao histórico e aos relatórios")).toBeInTheDocument();
     expect(setBoardMemberAccess).toHaveBeenLastCalledWith(child.id, professionalId, false);
     expect(revokeMember).not.toHaveBeenCalled();
+  });
+
+  it("mostra a categoria antes de permitir autorização do profissional", async () => {
+    const professionalId = "22222222-2222-4222-8222-222222222222";
+    const pending = {
+      professional_id: professionalId, professional_name: "Profissional fictício",
+      created_at: "2026-11-02T12:00:00Z", approved_at: null,
+      professional_category: "Psicólogo", professional_validated: false,
+    };
+    vi.mocked(listGuardianMembers).mockResolvedValueOnce([pending])
+      .mockResolvedValueOnce([{ ...pending, approved_at: "2026-11-03T12:00:00Z" }]);
+    render(<PatientInvitation child={child} preview={false} />);
+    expect(await screen.findByText("Psicólogo · Categoria declarada")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /autorizar edição da prancha/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Autorizar vínculo" }));
+    expect(await screen.findByRole("button", { name: /autorizar edição da prancha/i })).toBeVisible();
+    expect(approveProfessionalMember).toHaveBeenCalledWith(child.id, professionalId);
   });
 });

@@ -32,13 +32,15 @@ function dateValue(value: string): number | null {
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value ? time : null;
 }
 
-export function validateActivityPeriod(period: ActivityPeriod, today = todayInSaoPaulo()): string | null {
+export function validateActivityPeriod(
+  period: ActivityPeriod, today = todayInSaoPaulo(), maximumDays = 366,
+): string | null {
   const from = dateValue(period.from);
   const to = dateValue(period.to);
   if (from === null || to === null) return "Informe as datas inicial e final do período.";
   if (period.from < "2020-01-01" || period.to > today) return "Escolha datas entre 01/01/2020 e hoje.";
   if (from > to) return "A data inicial deve ser anterior ou igual à data final.";
-  if ((to - from) / DAY_MS + 1 > 366) return "Escolha um período de até 366 dias.";
+  if ((to - from) / DAY_MS + 1 > maximumDays) return `Escolha um período de até ${maximumDays} dias.`;
   return null;
 }
 

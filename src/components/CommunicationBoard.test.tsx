@@ -153,7 +153,6 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Ouvir frase" }));
-    fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
     fireEvent.click(screen.getByRole("button", { name: "Limpar frase" }));
     expect(props.speech.stop).toHaveBeenCalledOnce();
     expect(prefetch).toHaveBeenCalledOnce();
@@ -256,13 +255,13 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(within(sentence).getAllByText("Água", { exact: true })).toHaveLength(2);
     expect(within(sentence).getAllByText("Mais", { exact: true })).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
-    const confirmation = screen.getByRole("group", { name: "Confirmar limpeza da frase" });
-    expect(within(confirmation).getByRole("button", { name: "Manter frase" })).toHaveFocus();
-    fireEvent.click(within(confirmation).getByRole("button", { name: "Manter frase" }));
-    expect(play).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
-    fireEvent.click(screen.getByRole("button", { name: "Limpar frase" }));
+    const clear = screen.getByRole("button", { name: "Limpar frase" });
+    expect(clear.querySelector("svg")).toBeInTheDocument();
+    fireEvent.click(clear);
+    expect(clear).toBeDisabled();
+    expect(screen.queryByRole("group", { name: "Confirmar limpeza da frase" })).not.toBeInTheDocument();
+    expect(within(sentence).queryByText("Água", { exact: true })).not.toBeInTheDocument();
+    expect(within(sentence).queryByText("Mais", { exact: true })).not.toBeInTheDocument();
     fireEvent.click(play);
     expect(play).toBeDisabled();
     expect(props.onSelect).toHaveBeenCalledTimes(3);
@@ -322,7 +321,6 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(prepareSentence).toHaveBeenLastCalledWith(["Água", "Mais"], {
       voiceURI: "pt-BR-AntonioNeural", rate: 0.8,
     });
-    fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
     fireEvent.click(screen.getByRole("button", { name: "Limpar frase" }));
     expect(preparations[3]).toHaveBeenCalledOnce();
     expect(prepareSentence).toHaveBeenCalledTimes(4);
@@ -348,7 +346,7 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     render(<CommunicationBoard {...props} catalog={CATALOG_PICTOGRAMS} settings={DEFAULT_BOARD_SETTINGS} />);
     expect(screen.getAllByRole("button", { name: /^Falar / })).toHaveLength(12);
     fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
-    openArea("Todas as categorias");
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
     fireEvent.click(screen.getByRole("button", { name: /^Animais$/ }));
     expect(screen.getByRole("button", { name: "Falar Gato" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" })).getByText("Água")).toBeInTheDocument();
@@ -436,11 +434,51 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(opa).toBeDisabled();
   });
 
-  it("oferece Sim e Não grandes que entram na frase como qualquer figura", () => {
+  it("compacta o compositor vazio e recupera a altura normal com símbolos", () => {
     const { props } = fixture();
     render(<CommunicationBoard {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Responder sim" }));
-    fireEvent.click(screen.getByRole("button", { name: "Responder não" }));
+    const composer = screen.getByRole("region", { name: "O que vamos comunicar?" });
+    expect(composer).toHaveClass("kid-strip-empty");
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    expect(composer).not.toHaveClass("kid-strip-empty");
+    fireEvent.click(within(composer).getByRole("button", { name: "Limpar frase" }));
+    expect(composer).toHaveClass("kid-strip-empty");
+  });
+
+  it("destaca a paginação com indicador e mantém as páginas navegáveis", () => {
+    const { props } = fixture();
+    render(<CommunicationBoard {...props} settings={{ ...props.settings!, pageSize: 6 }} />);
+    const pagination = screen.getByRole("group", { name: "Paginação da prancha" });
+    expect(pagination).toHaveClass("kid-pagination");
+    expect(within(pagination).getByText(/Página 1 de/)).toHaveClass("kid-pagination-status");
+    const next = within(pagination).getByRole("button", { name: "Próxima página" });
+    expect(next).toHaveClass("kid-pagination-btn");
+    fireEvent.click(next);
+    expect(within(pagination).getByText(/Página 2 de/)).toBeVisible();
+    const back = screen.getByRole("button", { name: "Voltar a página" });
+    expect(back).toBeEnabled();
+    fireEvent.click(back);
+    expect(within(pagination).getByText(/Página 1 de/)).toBeVisible();
+  });
+
+  it("deixa explícita a saída do modo comunicação", () => {
+    const { props } = fixture();
+    const onUnlockRequest = vi.fn();
+    render(<CommunicationBoard {...props} isChildMode onUnlockRequest={onUnlockRequest} />);
+    const exit = screen.getByRole("button", { name: "Sair do modo comunicação" });
+    expect(exit).toHaveClass("kid-exit");
+    expect(exit).toHaveTextContent("Sair do modo comunicação");
+    fireEvent.click(exit);
+    expect(onUnlockRequest).toHaveBeenCalledOnce();
+  });
+
+  it("remove os atalhos grandes Sim e Não sem excluir os símbolos do catálogo", () => {
+    const { props } = fixture();
+    render(<CommunicationBoard {...props} />);
+    expect(screen.queryByRole("button", { name: "Responder sim" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Responder não" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Falar Sim" }));
+    fireEvent.click(screen.getByRole("button", { name: "Falar Não" }));
     const sentence = screen.getByRole("region", { name: "O que vamos comunicar?" });
     expect(within(sentence).getByText("Sim")).toBeInTheDocument();
     expect(within(sentence).getByText("Não")).toBeInTheDocument();
@@ -462,18 +500,21 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     const { props } = fixture();
     render(<CommunicationBoard {...props} />);
     expect(screen.queryByRole("group", { name: "Áreas da prancha" })).not.toBeInTheDocument();
-    const controls = within(screen.getByRole("group", { name: "Controles da prancha" }));
+    const dock = screen.getByRole("group", { name: "Controles da prancha" });
+    const controls = within(dock);
     expect(controls.getAllByRole("button")).toHaveLength(3);
-    for (const name of ["Ops, remover último", "Próxima página", "Categorias"]) {
+    expect(controls.getAllByRole("button")[0].closest(".kid-main")).not.toBeNull();
+    expect(dock).toHaveClass("kid-dock");
+    for (const name of ["Voltar a página", "Ops, remover último", "Categorias"]) {
       const button = controls.getByRole("button", { name });
       expect(button.querySelector("svg")).not.toBeNull();
       expect(button.textContent?.trim()).not.toBe("");
     }
     fireEvent.click(controls.getByRole("button", { name: "Categorias" }));
-    expect(controls.getByRole("button", { name: "Categorias" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("group", { name: "Categorias disponíveis" })).toBeInTheDocument();
     const areas = within(screen.getByRole("group", { name: "Áreas da prancha" }));
-    expect(areas.getAllByRole("button")).toHaveLength(8);
-    for (const name of ["Início", "Vocabulário essencial", "Necessidades", "Todas as categorias", "Saúde", "Favoritos", "Meus símbolos", "Frases rápidas"]) {
+    expect(areas.getAllByRole("button")).toHaveLength(7);
+    for (const name of ["Início", "Vocabulário essencial", "Necessidades", "Saúde", "Favoritos", "Meus símbolos", "Frases rápidas"]) {
       expect(areas.getByRole("button", { name })).toBeInTheDocument();
     }
     fireEvent.click(areas.getByRole("button", { name: "Início" }));
@@ -487,13 +528,13 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
     fireEvent.click(screen.getByRole("button", { name: "Próxima página" }));
     fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
-    expect(screen.getByRole("button", { name: "Próxima página" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Próxima página" })).not.toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("group", { name: "Áreas da prancha" }), { key: "Escape" });
     expect(screen.getByText("Página 2 de 2")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Página anterior" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Voltar a página" })).toBeEnabled();
     expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" })).getByText("Água")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Categorias" })).toHaveFocus());
-    fireEvent.click(screen.getByRole("button", { name: "Página anterior" }));
+    fireEvent.click(screen.getByRole("button", { name: "Voltar a página" }));
     expect(screen.getByText("Página 1 de 2")).toBeInTheDocument();
   });
 
@@ -504,27 +545,71 @@ describe("CommunicationBoard: pré-carregamento e resposta ao toque", () => {
     expect(within(screen.getByRole("group", { name: "Áreas da prancha" })).queryByRole("button", { name: "Frases rápidas" })).not.toBeInTheDocument();
   });
 
-  it("preserva a dica das categorias e registra somente o início da reprodução", () => {
+  it("reproduz a dica na voz configurada e mantém o texto visível sem apagar o compositor", () => {
     const { props } = fixture();
     render(<CommunicationBoard {...props} />);
-    openArea("Todas as categorias");
-    fireEvent.click(screen.getByRole("button", { name: /Não está no meu livro/ }));
-    expect(props.onSelect).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    const actions = within(screen.getByRole("group", { name: "Controles da prancha" }));
+    expect(actions.queryByRole("button", { name: "Categorias" })).not.toBeInTheDocument();
+    expect(actions.getAllByRole("button")).toHaveLength(3);
+    const hint = actions.getByRole("button", { name: "Não está no meu livro, mas vou dar uma dica" });
+    fireEvent.click(hint);
+    expect(hint).toBeVisible();
+    expect(props.onSelect).toHaveBeenCalledOnce();
     expect(props.onPlayback).not.toHaveBeenCalled();
+    expect(props.speech.speak).toHaveBeenLastCalledWith(hint.textContent?.trim(), expect.objectContaining({
+      voiceURI: props.voiceURI, rate: props.rate, offlineOnly: true,
+    }));
     const options = vi.mocked(props.speech.speak).mock.calls.at(-1)![1]!;
     options.onStart?.();
     options.onStart?.();
     expect(props.onPlayback).toHaveBeenCalledExactlyOnceWith("Não está no meu livro, mas vou dar uma dica");
+    fireEvent.click(actions.getByRole("button", { name: "Voltar a página" }));
+    const composer = within(screen.getByRole("region", { name: "O que vamos comunicar?" }));
+    expect(composer.getByText("Não está no meu livro, mas vou dar uma dica")).toBeVisible();
+    expect(composer.getByText("Água")).toBeInTheDocument();
+    fireEvent.click(composer.getByRole("button", { name: "Ocultar frase de dica" }));
+    expect(composer.queryByText("Não está no meu livro, mas vou dar uma dica")).not.toBeInTheDocument();
+  });
+
+  it("abre cartões ilustrados na ordem do paciente e volta da categoria sem perder a frase", () => {
+    const { props } = fixture();
+    render(<CommunicationBoard {...props} catalog={CATALOG_PICTOGRAMS} settings={{
+      ...DEFAULT_BOARD_SETTINGS, enabledCategories: ["animais", "pessoas"],
+      categoryOrder: ["pessoas", "animais"], categoryImages: { animais: 7114 },
+    }} />);
+    expect(screen.getByRole("button", { name: "Voltar a página" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Falar Água" }));
+    fireEvent.click(screen.getByRole("button", { name: "Categorias" }));
+    const categories = within(screen.getByRole("group", { name: "Categorias disponíveis" }));
+    expect(categories.getAllByRole("button").map((button) => button.textContent)).toEqual(["Pessoas", "Animais"]);
+    expect(categories.getByRole("button", { name: "Pessoas" }).querySelector("img")).toHaveAttribute("src", "/api/arasaac-image?id=38351");
+    const animals = categories.getByRole("button", { name: "Animais" });
+    expect(animals.querySelector("img")).toHaveAttribute("src", "/api/arasaac-image?id=7114");
+    fireEvent.click(animals);
+    fireEvent.click(screen.getByRole("button", { name: "Falar Gato" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ops, remover último" }));
+    const composer = within(screen.getByRole("region", { name: "O que vamos comunicar?" }));
+    expect(composer.queryByText("Gato")).not.toBeInTheDocument();
+    expect(composer.getByText("Água")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Voltar a página" }));
+    expect(screen.getByRole("group", { name: "Categorias disponíveis" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Voltar a página" }));
+    expect(screen.getByRole("button", { name: "Falar Água" })).toBeInTheDocument();
+    expect(composer.getByText("Água")).toBeInTheDocument();
+    expect(props.onSelect).toHaveBeenCalledTimes(2);
+    expect(props.onPlayback).not.toHaveBeenCalled();
   });
 
   it("mantém Libras opcional para o adulto sem carregar o intérprete ao selecionar", () => {
     const { props } = fixture();
     const { rerender } = render(<CommunicationBoard {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Responder sim" }));
-    expect(screen.getByText("Traduzir em Libras")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Falar Sim" }));
+    expect(screen.getByRole("button", { name: "Ativar Libras" })).toBeInTheDocument();
     expect(screen.queryByTitle("Intérprete VLibras")).not.toBeInTheDocument();
     rerender(<CommunicationBoard {...props} isChildMode />);
-    expect(screen.queryByText("Traduzir em Libras")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ativar Libras" })).not.toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "O que vamos comunicar?" })).getByText("Sim")).toBeInTheDocument();
   });
 });

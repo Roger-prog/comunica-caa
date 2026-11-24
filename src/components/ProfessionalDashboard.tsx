@@ -18,6 +18,7 @@ import { downloadPatientReport } from "../lib/patientReport";
 import { ProfessionalError } from "../lib/professional";
 import { ActivitySymbol } from "./ActivitySymbol";
 import { LinkedPatientBoardPanel } from "./PatientBoardPanel";
+import { PronunciationRecordings } from "./PronunciationRecordings";
 
 const PAGE_SIZE = 20;
 
@@ -243,7 +244,7 @@ export function ProfessionalDashboard({
             </p>
           ) : dashboard.error ? (
             <div>
-              <p role="alert" className="text-sm text-red-800">
+              <p role="alert" className="text-sm text-red-800 dark:text-red-300">
                 {dashboard.error}
               </p>
               <button
@@ -279,7 +280,7 @@ export function ProfessionalDashboard({
 
         <section
           className="min-w-0 space-y-5"
-          aria-label="Comunicações do paciente"
+          aria-label="Acompanhamento do paciente"
         >
           {!dashboard.selectedPatient ? (
             <div className="surface p-8 text-center">
@@ -313,6 +314,9 @@ export function ProfessionalDashboard({
                   A personalização da prancha fica disponível quando o responsável autoriza o acesso.
                 </p>
               ))}
+              {!preview && userId && (
+                <PronunciationRecordings key={dashboard.selectedPatient.id} patientId={dashboard.selectedPatient.id} />
+              )}
               <div className="surface p-5 sm:p-6">
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -398,12 +402,12 @@ export function ProfessionalDashboard({
                   relatório.
                 </p>
                 {dashboard.periodError && (
-                  <p role="alert" className="mt-3 text-sm text-red-800">
+                  <p role="alert" className="mt-3 text-sm text-red-800 dark:text-red-300">
                     {dashboard.periodError}
                   </p>
                 )}
                 {exportError && (
-                  <p role="alert" className="mt-3 text-sm text-red-800">
+                  <p role="alert" className="mt-3 text-sm text-red-800 dark:text-red-300">
                     {exportError}
                   </p>
                 )}
@@ -422,7 +426,7 @@ export function ProfessionalDashboard({
                 </div>
               ) : dashboard.eventsError ? (
                 <div className="surface p-6">
-                  <p role="alert" className="text-sm text-red-800">
+                  <p role="alert" className="text-sm text-red-800 dark:text-red-300">
                     {dashboard.eventsError}
                   </p>
                   <button

@@ -10,6 +10,7 @@ import type { Session } from "@supabase/supabase-js";
 import { configurationError, supabase } from "../lib/supabase";
 import { isMockAuthMode } from "./authMode";
 import { isAccountRole, type AccountRole, type AuthUser } from "./authTypes";
+import type { Profession } from "./ProfessionalFields";
 import { withPasswordUpdateToken } from "./passwordMutation";
 import { SignupEmailError } from "./signupEmail";
 import {
@@ -351,6 +352,7 @@ function RealAuthProvider({ children }: { children: ReactNode }) {
       password: string,
       consent: boolean,
       role: AccountRole,
+      profession?: Profession,
     ): Promise<SignUpResult> => {
       const client = requireClient();
       validateProfileInput(nome, consent, role);
@@ -365,7 +367,13 @@ function RealAuthProvider({ children }: { children: ReactNode }) {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
-            data: { nome: nome.trim(), name: nome.trim(), role, consent: true },
+            data: {
+              nome: nome.trim(), name: nome.trim(), role, consent: true,
+              ...(role === "fonoaudiologo" && profession?.category && {
+                professional_category: profession.category,
+                professional_registration: profession.registration.trim() || null,
+              }),
+            },
           },
         });
         if (error) throw error;
@@ -465,19 +473,24 @@ function RealAuthProvider({ children }: { children: ReactNode }) {
   );
 
   const completeProfile = useCallback(
-    async (role: AccountRole, nome: string, consent: boolean) => {
+    async (role: AccountRole, nome: string, consent: boolean, profession?: Profession) => {
       const client = requireClient();
       validateProfileInput(nome, consent, role);
       const current = sessionRef.current;
       if (!current)
         throw new Error("Entre na sua conta para concluir o perfil.");
       const key = `${current.user.id}:${current.access_token}`;
-      const { error } = await client.rpc("complete_caa_profile", {
-        p_role: role,
+      const profileFields = {
         p_nome: nome.trim(),
         p_consent: consent,
         p_expected_user_id: current.user.id,
-      });
+      };
+      const { error } = await (role === "fonoaudiologo" && profession?.category
+        ? client.rpc("complete_caa_profile_with_profession", {
+          ...profileFields, p_category: profession.category,
+          p_registration: profession.registration.trim() || null,
+        })
+        : client.rpc("complete_caa_profile", { ...profileFields, p_role: role }));
       if (error)
         throw new Error(
           "Não foi possível concluir o perfil. Verifique sua sessão e tente novamente.",

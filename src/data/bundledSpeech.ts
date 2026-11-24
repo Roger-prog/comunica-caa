@@ -50,6 +50,7 @@ import francisca_rapida_pergunta from "../assets/voices/francisca/rapida-pergunt
 import francisca_rapida_medo from "../assets/voices/francisca/rapida-medo.mp3?inline";
 import francisca_rapida_pausa from "../assets/voices/francisca/rapida-pausa.mp3?inline";
 import francisca_rapida_responsavel from "../assets/voices/francisca/rapida-responsavel.mp3?inline";
+import francisca_dica_categorias from "../assets/voices/francisca/dica-categorias.mp3?inline";
 import antonio_agua from "../assets/voices/antonio/agua.mp3?inline";
 import antonio_comer from "../assets/voices/antonio/comer.mp3?inline";
 import antonio_banheiro from "../assets/voices/antonio/banheiro.mp3?inline";
@@ -102,6 +103,7 @@ import antonio_rapida_pergunta from "../assets/voices/antonio/rapida-pergunta.mp
 import antonio_rapida_medo from "../assets/voices/antonio/rapida-medo.mp3?inline";
 import antonio_rapida_pausa from "../assets/voices/antonio/rapida-pausa.mp3?inline";
 import antonio_rapida_responsavel from "../assets/voices/antonio/rapida-responsavel.mp3?inline";
+import antonio_dica_categorias from "../assets/voices/antonio/dica-categorias.mp3?inline";
 
 // Public, pre-generated vocabulary; inline imports perform no runtime download.
 const clips = new Map<string, Map<string, string>>([
@@ -158,6 +160,7 @@ const clips = new Map<string, Map<string, string>>([
     ["Estou com medo.", francisca_rapida_medo],
     ["Preciso de uma pausa.", francisca_rapida_pausa],
     ["Quero falar com meu responsável.", francisca_rapida_responsavel],
+    ["Não está no meu livro, mas vou dar uma dica", francisca_dica_categorias],
   ])],
   ["pt-BR-AntonioNeural", new Map([
     ["Água", antonio_agua],
@@ -212,6 +215,7 @@ const clips = new Map<string, Map<string, string>>([
     ["Estou com medo.", antonio_rapida_medo],
     ["Preciso de uma pausa.", antonio_rapida_pausa],
     ["Quero falar com meu responsável.", antonio_rapida_responsavel],
+    ["Não está no meu livro, mas vou dar uma dica", antonio_dica_categorias],
   ])],
 ]);
 

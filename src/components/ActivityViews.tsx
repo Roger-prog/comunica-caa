@@ -1,5 +1,4 @@
-import { PronunciationRecorder } from "./PronunciationRecorder";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Activity, ArrowUpRight, Clock3, Hand, MessageCircle, Search, Sparkles } from "lucide-react";
 import type { Pictogram } from "../data/pictograms";
 import {
@@ -16,6 +15,7 @@ import {
   type ActivityPeriod,
 } from "../lib/activityEvents";
 import type { Comunicacao } from "../lib/database.types";
+import { fetchHistoryPage } from "../lib/history";
 import { fetchGuardianPatientEvents, ProfessionalError } from "../lib/professional";
 import { ActivitySymbol } from "./ActivitySymbol";
 
@@ -89,12 +89,13 @@ function DailyActivityChart({
 }
 
 export function Evolution({
-  events, onBoard, patientId, loading = false,
+  events, onBoard, patientId, loading = false, recordings,
 }: {
   events: Comunicacao[];
   onBoard: () => void;
   patientId?: string;
   loading?: boolean;
+  recordings?: ReactNode;
 }) {
   const [range, setRange] = useState("7");
   const [custom, setCustom] = useState<ActivityPeriod>(() => recentActivityPeriod(7));
@@ -139,7 +140,7 @@ export function Evolution({
   const waiting = patientId ? !active : loading;
   return (
     <div className="space-y-6">
-      <PronunciationRecorder key={patientId ?? "demo"} />
+      {recordings}
       <div className="flex flex-wrap items-end gap-4">
         <label className="grid gap-2 text-sm font-medium">
           Período
@@ -164,11 +165,11 @@ export function Evolution({
           </div>
         )}
       </div>
-      {invalidPeriod ? <p role="alert" className="text-sm text-red-800">{invalidPeriod}</p>
+      {invalidPeriod ? <p role="alert" className="text-sm text-red-800 dark:text-red-300">{invalidPeriod}</p>
         : waiting ? <p role="status" className="text-sm text-stone-600">Carregando registros do período…</p>
         : active?.error ? (
           <div className="surface space-y-3 p-5">
-            <p role="alert" className="text-sm text-red-800">{active.error}</p>
+            <p role="alert" className="text-sm text-red-800 dark:text-red-300">{active.error}</p>
             <button type="button" className="button-secondary" onClick={() => setRetry((current) => current + 1)}>Tentar novamente</button>
           </div>
         ) : (
@@ -230,33 +231,94 @@ export function Evolution({
 }
 
 export function History({
-  events, loading, onBoard, catalog, hasOlder = false, loadOlder,
+  events, loading, onBoard, catalog, patientId,
 }: {
   events: Comunicacao[];
   loading: boolean;
   onBoard: () => void;
   catalog?: readonly Pictogram[];
-  hasOlder?: boolean;
-  loadOlder?: () => void;
+  patientId?: string;
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ActivityFilter>("all");
-  const [days, setDays] = useState(0);
+  const [range, setRange] = useState("all");
+  const [custom, setCustom] = useState<ActivityPeriod>(() => recentActivityPeriod(7));
+  const [retry, setRetry] = useState(0);
+  const [page, setPage] = useState<{
+    key: string; snapshot: Comunicacao[]; events: Comunicacao[];
+  } | null>(null);
+  const [result, setResult] = useState<{
+    key: string; snapshot: Comunicacao[]; page: typeof page; events: Comunicacao[];
+    hasOlder: boolean; error?: string;
+  } | null>(null);
   const today = todayInSaoPaulo();
-  const filtered = useMemo(() => filterActivity(days ? activityInPeriod(events, recentActivityPeriod(days, today)) : events, filter, search), [events, filter, search, days, today]);
+  const period = range === "custom" ? custom
+    : range === "all" ? null : recentActivityPeriod(Number(range), today);
+  const from = period?.from;
+  const to = period?.to;
+  const invalidPeriod = period && validateActivityPeriod(period, today, Infinity);
+  const key = JSON.stringify([patientId, from, to, filter, search, retry]);
+  const currentPage = page?.key === key && page.snapshot === events ? page : null;
+  const current = result?.key === key && result.snapshot === events && result.page === currentPage ? result : null;
+  const waiting = !invalidPeriod && (patientId ? !current : loading);
+
+  useEffect(() => {
+    if (!patientId || invalidPeriod) return;
+    const controller = new AbortController();
+    const previous = currentPage?.events ?? noEvents;
+    const timer = window.setTimeout(() => {
+      void fetchHistoryPage(patientId, from && to ? { from, to } : null, filter, search,
+        previous.at(-1), controller.signal).then((next) => {
+        if (!controller.signal.aborted) {
+          setResult({ key, page: currentPage, snapshot: events,
+            events: [...previous, ...next.events], hasOlder: next.hasOlder });
+        }
+      }).catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setResult({ key, page: currentPage, snapshot: events, events: previous, hasOlder: false,
+            error: error instanceof Error ? error.message : "Não foi possível carregar o histórico." });
+        }
+      });
+    }, search && !currentPage ? 200 : 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [patientId, invalidPeriod, key, from, to, filter, search, events, currentPage]);
+
+  const filtered = patientId ? current?.events ?? currentPage?.events ?? noEvents
+    : filterActivity(period && !invalidPeriod ? activityInPeriod(events, period) : events, filter, search);
   const byId = useMemo(() => catalog ? new Map(catalog.map((item) => [item.id, item])) : undefined, [catalog]);
+  const hasFilters = Boolean(period || filter !== "all" || search);
   return (
     <div className="space-y-6">
-      <p className="text-sm text-stone-600">
-        Horário de Brasília.{hasOlder ? " A busca considera os registros carregados." : ""}
-      </p>
+      <p className="text-sm text-stone-600">Horário de Brasília.</p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="grid gap-2 text-sm font-medium">
           Período do histórico
-          <select className="input-field" value={days} onChange={event => setDays(Number(event.target.value))}>
-            <option value="0">Todo o período</option><option value="1">Hoje</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option>
+          <select className="input-field" value={range} onChange={(event) => setRange(event.target.value)}>
+            <option value="all">Todo o período disponível</option>
+            <option value="1">Hoje</option>
+            <option value="7">Últimos 7 dias</option>
+            <option value="30">Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+            <option value="custom">Intervalo personalizado</option>
           </select>
         </label>
+        {range === "custom" && (
+          <div className="flex flex-wrap gap-3">
+            <label className="grid gap-2 text-sm font-medium">
+              Data inicial
+              <input className="input-field w-auto" type="date" min="2020-01-01" max={today} value={custom.from}
+                onChange={(event) => setCustom((value) => ({ ...value, from: event.target.value }))} />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              Data final
+              <input className="input-field w-auto" type="date" min="2020-01-01" max={today} value={custom.to}
+                onChange={(event) => setCustom((value) => ({ ...value, to: event.target.value }))} />
+            </label>
+          </div>
+        )}
         <label className="grid gap-2 text-sm font-medium">
           Tipo de evento
           <select className="input-field w-auto" value={filter} onChange={(event) => setFilter(event.target.value as ActivityFilter)}>
@@ -268,35 +330,42 @@ export function History({
         <label className="relative min-w-36 flex-1 sm:max-w-64">
           <span className="sr-only">Buscar no histórico</span>
           <Search size={17} className="absolute top-4 left-4 text-stone-400" aria-hidden="true" />
-          <input className="input-field pl-11" type="search" placeholder="Buscar no histórico…" value={search}
+          <input className="input-field pl-11" type="search" placeholder="Buscar no histórico…" value={search} maxLength={160}
             onChange={(event) => setSearch(event.target.value)} />
         </label>
       </div>
-      {loading && <p role="status" className="text-sm text-stone-600">Atualizando histórico…</p>}
-      {!events.length && !loading ? <EmptyActivity onBoard={onBoard} /> : (
-        <section className="surface overflow-hidden" aria-label="Registros de comunicação" aria-busy={loading}>
+      {waiting && <p role="status" className="text-sm text-stone-600">Atualizando histórico…</p>}
+      {invalidPeriod ? <p role="alert" className="text-sm text-red-800 dark:text-red-300">{invalidPeriod}</p>
+        : current?.error ? (
+          <div className="surface space-y-3 p-5">
+            <p role="alert" className="text-sm text-red-800 dark:text-red-300">{current.error}</p>
+            <button type="button" className="button-secondary" onClick={() => setRetry((value) => value + 1)}>Tentar novamente</button>
+          </div>
+        ) : !filtered.length && !waiting && !hasFilters ? <EmptyActivity onBoard={onBoard} /> : (
+        <section className="surface overflow-hidden" aria-label="Registros de comunicação" aria-busy={waiting}>
           <ul className="divide-y divide-stone-100">
             {filtered.map((event) => (
               <li key={event.id} className="flex flex-wrap items-start gap-x-3 gap-y-2 p-4 sm:p-5">
                 <ActivitySymbol event={event} catalog={byId} />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold break-words">{event.rotulo}</p>
-                  <p className="mt-1 text-xs text-stone-600">
+                  <p className="mt-1 text-xs text-stone-500 dark:text-stone-600">
                     {[eventTypeLabel(event), event.symbol_source === "custom" ? "Personalizado" : null, event.categoria].filter(Boolean).join(" · ")}
                   </p>
                 </div>
-                <time className="flex items-center gap-2 text-xs text-stone-600" dateTime={event.created_at}>
+                <time className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-600" dateTime={event.created_at}>
                   <Clock3 size={14} aria-hidden="true" />
                   {activityDateTime.format(new Date(event.created_at))}
                 </time>
               </li>
             ))}
           </ul>
-          {!filtered.length && events.length > 0 && <p className="p-8 text-center text-sm text-stone-600">Nenhum registro corresponde aos filtros.</p>}
+          {!filtered.length && !waiting && <p className="p-8 text-center text-sm text-stone-600">Nenhum registro corresponde aos filtros.</p>}
         </section>
       )}
-      {hasOlder && loadOlder && (
-        <button type="button" className="button-secondary" disabled={loading} onClick={loadOlder}>
+      {(current?.hasOlder || (waiting && currentPage)) && (
+        <button type="button" className="button-secondary" disabled={waiting}
+          onClick={() => setPage({ key, snapshot: events, events: filtered })}>
           Carregar registros anteriores
         </button>
       )}

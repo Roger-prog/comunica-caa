@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import type { AccountRole } from "./authTypes";
+import { emptyProfession, ProfessionalFields } from "./ProfessionalFields";
 import { homeForRole } from "./authRouting";
 import {
   AuthAlert,
@@ -17,6 +18,7 @@ export function CompletarPerfil() {
   const { user, loading, completeProfile, signOut } = useAuth();
   const [nome, setNome] = useState(user?.name ?? "");
   const [role, setRole] = useState<AccountRole | "">("");
+  const [profession, setProfession] = useState(emptyProfession);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,8 @@ export function CompletarPerfil() {
     }
     setBusy(true);
     try {
-      await completeProfile(role, nome.trim(), consent);
+      await completeProfile(role, nome.trim(), consent,
+        ...(role === "fonoaudiologo" && profession.category ? [profession] : []));
     } catch (cause) {
       setError(operationError(cause));
     } finally {
@@ -81,6 +84,7 @@ export function CompletarPerfil() {
             />
           </label>
           <RoleFields value={role} onChange={setRole} disabled={busy} />
+          {role === "fonoaudiologo" && <ProfessionalFields value={profession} onChange={setProfession} disabled={busy} />}
           <ConsentField
             checked={consent}
             onChange={setConsent}

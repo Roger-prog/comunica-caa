@@ -25,6 +25,12 @@ vi.mock("../lib/professional", () => ({
 }));
 vi.mock("../lib/patientReport", () => ({ downloadPatientReport: download }));
 vi.mock("../lib/patientBoard", () => ({ usePatientBoard: loadBoard }));
+vi.mock("../lib/pronunciation", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../lib/pronunciation")>(),
+  getRecordingSettings: vi.fn().mockResolvedValue({
+    can_read: false, can_record: false, can_manage: false, retention_days: null,
+  }),
+}));
 vi.mock("./PatientPhoto", () => ({
   PatientPhoto: ({ path }: { path: string }) => <span data-testid="scoped-photo">{path}</span>,
 }));

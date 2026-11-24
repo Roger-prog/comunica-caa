@@ -2,6 +2,7 @@ import { DemoBoard } from "./DemoBoard";
 import type { ReactNode } from "react";
 import { ArrowRight, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { LibrasPanel } from "./LibrasPanel";
 
 export const PUBLIC_CONTACT = {
   responsible: import.meta.env.VITE_CONTACT_NAME?.trim() || "Equipe Comunica",
@@ -81,6 +82,7 @@ export function AboutPage() {
       <section className="mt-10 space-y-3"><h2 className="text-3xl">Quem acompanha a criança</h2>
         <p>O responsável organiza os símbolos do dia a dia. O profissional vinculado acompanha o uso da prancha e gera relatórios.</p>
       </section>
+      <LibrasPanel />
       <section className="surface mt-8 p-6 sm:p-8" aria-labelledby="account-title">
         <h2 id="account-title" className="text-2xl font-semibold">Privacidade e acesso à sua conta</h2>
         <p className="mt-4 max-w-3xl leading-8 text-stone-600">
@@ -147,8 +149,12 @@ export function PrivacyPage() {
           contas, disponibilizar a prancha de comunicação e permitir o acompanhamento
           dos perfis cadastrados.
         </p>
-        <PrivacySection title="Áudio de pronúncia e Libras">
-          <p>As gravações de pronúncia ficam temporariamente no dispositivo. Ao abrir o intérprete de Libras, a frase escolhida fica disponível ao serviço VLibras para tradução.</p>
+        <PrivacySection title="Áudio de pronúncia">
+          <p>A prévia de pronúncia fica no dispositivo até ser salva ou descartada. Uma gravação salva com autorização fica vinculada ao perfil, em armazenamento privado, pelo prazo escolhido pelo responsável titular.</p>
+          <p>Profissionais com vínculo aprovado podem ouvir e registrar observações quando autorizados pelo responsável. O Comunica não envia o áudio a serviços de inteligência artificial.</p>
+        </PrivacySection>
+        <PrivacySection title="Libras">
+          <p>O recurso opcional VLibras carrega em uma área isolada com instruções públicas. O Comunica mantém os textos da prancha e os dados dos pacientes fora dessa área.</p>
         </PrivacySection>
         <PrivacySection title="Responsável e contato">
           <p>Responsável pelo serviço — {PUBLIC_CONTACT.responsible}.</p>
@@ -159,7 +165,9 @@ export function PrivacyPage() {
             A autenticação utiliza o identificador da conta e o e-mail. No acesso
             com Google, o serviço de autenticação recebe informações básicas do
             perfil, incluindo nome e, quando fornecida pelo Google, foto de perfil.
-            O perfil do Comunica contém o nome e o tipo de conta escolhido.
+            O perfil do Comunica contém o nome e os papéis autorizados.
+            O cadastro profissional inclui a área de atuação declarada e o
+            registro profissional, quando informado.
           </p>
           <p>
             O responsável informa os nomes dos perfis de crianças e utiliza a
@@ -168,7 +176,7 @@ export function PrivacyPage() {
             leitura foi iniciada. Os registros incluem data, horário e perfil. As
             seleções incluem o rótulo e a categoria do símbolo. As fotos privadas
             ficam no armazenamento da prancha, sem cópias no histórico. Também são
-            armazenados convites temporários e vínculos com profissionais.
+            armazenados convites temporários e vínculos com responsáveis e profissionais.
           </p>
           <p>
             A personalização por paciente inclui preferências da prancha,
@@ -185,12 +193,12 @@ export function PrivacyPage() {
             identificação, ao e-mail e ao perfil básico para autenticação.
           </p>
           <p>
-            O responsável acessa os perfis e registros associados à sua conta.
-            O profissional pode consultar o histórico dos pacientes vinculados
-            por convite. A personalização e o acesso a fotografias exigem
-            autorização separada no vínculo. O responsável pode retirar essa
-            autorização ou revogar o vínculo. O servidor verifica o acesso
-            em cada solicitação de foto.
+            Responsáveis vinculados podem visualizar os dados dos perfis
+            autorizados. As permissões de edição e de gestão de vínculos são
+            concedidas separadamente. O profissional pode consultar o histórico
+            após a aprovação do vínculo pelo responsável. A personalização e o
+            acesso a fotografias exigem autorização separada no vínculo. O
+            servidor verifica as permissões em cada solicitação de foto.
           </p>
         </PrivacySection>
         <PrivacySection title="Serviços utilizados">
@@ -220,6 +228,13 @@ export function PrivacyPage() {
             exclusão podem ser encaminhadas ao contato de privacidade.
             O responsável pelo serviço avaliará a solicitação e informará o
             atendimento e a conservação aplicável aos dados envolvidos.
+          </p>
+          <p>
+            A exclusão da própria conta pode ser solicitada em Ajustes.
+            Perfis compartilhados podem ser transferidos a outro responsável
+            autorizado. Quando não há outro responsável habilitado a assumir o
+            perfil ou há arquivos em nome da conta, a equipe de privacidade
+            analisa a solicitação antes de encerrar a conta.
           </p>
           <p>
             Quem inclui uma foto confirma que possui autorização para usá-la

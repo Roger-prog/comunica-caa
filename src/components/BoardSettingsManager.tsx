@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Volume2 } from "lucide-react";
 import {
-  CATEGORY_OPTIONS,
   DEFAULT_HOME_SYMBOL_IDS,
+  getBoardCategoryOptions,
   searchPictograms,
   toCategoryId,
   type Pictogram,
@@ -22,6 +22,8 @@ import {
   type PatientBoard,
 } from "../lib/patientBoardModel";
 import { PictogramPicture } from "./PictogramPicture";
+import { ArasaacPicker } from "./ArasaacPicker";
+import { CategoryPicture } from "./CategoryPicture";
 
 const sections = [
   { id: "appearance", label: "Aparência" },
@@ -249,14 +251,22 @@ function OrganizationSettings({ draft, set, catalog, hiddenCount, onShowHiddenSy
   onShowHiddenSymbols?: () => void;
   invalidPhraseId: string | null;
 }) {
-  const [categoryId, setCategoryId] = useState(CATEGORY_OPTIONS[0]?.id ?? "");
+  const categories = useMemo(() => getBoardCategoryOptions(catalog), [catalog]);
+  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [orderId, setOrderId] = useState("");
-  const activeCategories = draft.enabledCategories ?? CATEGORY_OPTIONS.map((item) => item.id);
-  const categoryOrder = ordered(CATEGORY_OPTIONS, [...new Set([...draft.categoryOrder, ...draft.favoriteCategories])], (category) => category.id);
+  const activeCategories = draft.enabledCategories ?? categories.map((item) => item.id);
+  const categoryOrder = ordered(categories, [...new Set([...draft.categoryOrder, ...draft.favoriteCategories])], (category) => category.id);
   const currentCategory = categoryOrder.findIndex((category) => category.id === categoryId);
   const symbols = catalog.filter((symbol) => (symbol.categories ?? [symbol.category]).some((category) => toCategoryId(category) === categoryId));
   const orderedSymbols = ordered(symbols, draft.symbolOrder[categoryId] ?? [], (symbol) => symbol.id);
   const orderIndex = orderedSymbols.findIndex((symbol) => symbol.id === orderId);
+  const categoryImage = draft.categoryImages[categoryId];
+
+  function restoreCategoryImage() {
+    const images = { ...draft.categoryImages };
+    delete images[categoryId];
+    set("categoryImages", images);
+  }
 
   return <div className="space-y-4">
     <Setting title="Categoria a editar">
@@ -277,6 +287,18 @@ function OrganizationSettings({ draft, set, catalog, hiddenCount, onShowHiddenSy
       </div>
       <MoveButtons index={currentCategory} count={categoryOrder.length} label="categoria"
         onMove={(change) => set("categoryOrder", moved(categoryOrder.map((category) => category.id), currentCategory, change))} />
+      <details key={categoryId} className="rounded-2xl border border-stone-200 p-3">
+        <summary className="flex min-h-11 cursor-pointer items-center gap-3 font-semibold">
+          <CategoryPicture categoryId={categoryId} override={categoryImage} /> Imagem da categoria
+        </summary>
+        <div className="mt-3 space-y-3">
+          {categoryImage && <button type="button" className="button-secondary" onClick={restoreCategoryImage}>
+            Restaurar imagem padrão
+          </button>}
+          <ArasaacPicker disabled={false} selectedId={categoryImage ?? null}
+            onSelect={(id) => set("categoryImages", { ...draft.categoryImages, [categoryId]: id })} />
+        </div>
+      </details>
       <Setting title="Ordem dos símbolos nesta categoria">
         <select className="input-field" value={orderId} onChange={(event) => setOrderId(event.target.value)}>
           <option value="">Selecione o símbolo para mover</option>

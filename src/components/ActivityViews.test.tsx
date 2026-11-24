@@ -1,14 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { activityInPeriod, dailyActivity, summarizeActivity, todayInSaoPaulo } from "../lib/activityEvents";
+import { activityInPeriod, dailyActivity, recentActivityPeriod, summarizeActivity, todayInSaoPaulo } from "../lib/activityEvents";
 import type { Comunicacao } from "../lib/database.types";
 import { Evolution, History } from "./ActivityViews";
 
-const { fetchEvents } = vi.hoisted(() => ({ fetchEvents: vi.fn() }));
+const { fetchEvents, fetchHistory } = vi.hoisted(() => ({ fetchEvents: vi.fn(), fetchHistory: vi.fn() }));
 vi.mock("../lib/professional", () => ({
   fetchGuardianPatientEvents: fetchEvents,
   ProfessionalError: class extends Error {},
 }));
+vi.mock("../lib/history", () => ({ fetchHistoryPage: fetchHistory }));
 
 function dateInPeriod(daysAgo = 0) {
   const date = new Date();
@@ -85,19 +86,40 @@ describe("History", () => {
     expect(screen.queryByText("Símbolo anterior")).not.toBeInTheDocument();
   });
 
-  it("keeps the query active when requesting earlier events and applies it to the next results", () => {
-    const loadOlder = vi.fn();
-    const onBoard = vi.fn();
-    const recent = [event("recent")];
-    const { rerender } = render(<History events={recent} loading={false} onBoard={onBoard} hasOlder loadOlder={loadOlder} />);
+  it("applies search, type, periods, and pagination to the selected patient query", async () => {
+    const recent = event("recent");
+    fetchHistory.mockClear().mockResolvedValue({ events: [], hasOlder: false });
+    render(<History events={[]} loading={false} onBoard={vi.fn()} patientId="patient-a" />);
+    await waitFor(() => expect(fetchHistory).toHaveBeenLastCalledWith(
+      "patient-a", null, "all", "", undefined, expect.any(AbortSignal),
+    ));
+
+    const period = screen.getByRole("combobox", { name: "Período do histórico" });
+    for (const days of [1, 7, 30, 90]) {
+      fireEvent.change(period, { target: { value: String(days) } });
+      await waitFor(() => expect(fetchHistory).toHaveBeenLastCalledWith(
+        "patient-a", recentActivityPeriod(days), "all", "", undefined, expect.any(AbortSignal),
+      ));
+    }
+
+    fireEvent.change(period, { target: { value: "custom" } });
+    const today = todayInSaoPaulo();
+    fireEvent.change(screen.getByLabelText("Data inicial"), { target: { value: today } });
+    fireEvent.change(screen.getByLabelText("Data final"), { target: { value: "2020-01-01" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("A data inicial deve ser anterior");
+    fireEvent.change(screen.getByLabelText("Data final"), { target: { value: today } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Tipo de evento" }), { target: { value: "symbol_selection" } });
+    fetchHistory.mockImplementation((_patient, _dates, _type, _search, cursor) => Promise.resolve(
+      cursor ? { events: [event("older", { rotulo: "Suco vermelho" })], hasOlder: false }
+        : { events: [recent], hasOlder: true },
+    ));
     fireEvent.change(screen.getByRole("searchbox", { name: "Buscar no histórico" }), { target: { value: "suco" } });
-    expect(screen.getByText("Nenhum registro corresponde aos filtros.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Carregar registros anteriores" }));
-    expect(loadOlder).toHaveBeenCalledOnce();
-    rerender(<History events={recent} loading onBoard={onBoard} hasOlder loadOlder={loadOlder} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Carregar registros anteriores" }));
     expect(screen.getByRole("button", { name: "Carregar registros anteriores" })).toBeDisabled();
-    rerender(<History events={[...recent, event("earlier", { rotulo: "Suco" })]} loading={false} onBoard={onBoard} loadOlder={loadOlder} />);
-    expect(screen.getByText("Suco")).toBeInTheDocument();
+    expect(await screen.findByText("Suco vermelho")).toBeInTheDocument();
+    expect(fetchHistory).toHaveBeenLastCalledWith(
+      "patient-a", { from: today, to: today }, "symbol_selection", "suco", recent, expect.any(AbortSignal),
+    );
     expect(screen.queryByRole("button", { name: "Carregar registros anteriores" })).not.toBeInTheDocument();
   });
 });

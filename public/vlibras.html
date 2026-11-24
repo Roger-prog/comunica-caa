@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Guia do Comunica em Libras</title>
+    <style>
+      body { margin: 1rem; background: #faf9f6; color: #2e2937; font: 1rem/1.5 system-ui, sans-serif; }
+      main { max-width: 36rem; }
+      h1 { font-size: 1.3rem; }
+      @media (min-width: 720px) {
+        main { max-width: calc(100% - 22rem); }
+      }
+      @media (max-width: 719px) {
+        #vlibras-app-root[data-active="true"] {
+          min-height: 26rem;
+          transform: translateZ(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Guia da prancha</h1>
+      <p>Abra o botão do VLibras e selecione um texto deste guia para ver a tradução em Libras.</p>
+      <p>Com o teclado, use a opção Tradutor no menu do VLibras.</p>
+      <ul>
+        <li>Escolha símbolos para montar uma frase.</li>
+        <li>Abra Categorias para encontrar outros símbolos.</li>
+        <li>Use Ops para retirar o último símbolo.</li>
+        <li>Toque em Falar para ouvir a frase.</li>
+      </ul>
+      <noscript>Ative o JavaScript para usar o intérprete de Libras.</noscript>
+    </main>
+    <script>
+      // Execute third-party code only in the sandbox, with an opaque origin.
+      if (window.parent !== window && window.origin === "null") {
+        const report = status =>
+          window.parent.postMessage({ type: "comunica-vlibras", status }, window.location.origin);
+        const plugin = document.createElement("script");
+        plugin.src = "https://vlibras.gov.br/app/vlibras-plugin.js";
+        plugin.referrerPolicy = "no-referrer";
+        plugin.addEventListener("load", () => report("ready"), { once: true });
+        document.addEventListener("error", event => {
+          if (event.target instanceof HTMLScriptElement) report("error");
+        }, true);
+        document.head.append(plugin);
+      }
+    </script>
+  </body>
+</html>

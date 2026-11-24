@@ -46,6 +46,17 @@ export const CATEGORY_OPTIONS = CATALOG_CATEGORIES.map((label) => ({
   label,
 }));
 
+export function getBoardCategoryOptions(catalog: readonly Pictogram[]) {
+  const options = new Map(CATEGORY_OPTIONS.map(({ id, label }) => [id, label]));
+  for (const item of catalog) {
+    for (const label of item.categories ?? [item.category]) {
+      const id = toCategoryId(label);
+      if (id && !options.has(id)) options.set(id, label);
+    }
+  }
+  return Array.from(options, ([id, label]) => ({ id, label }));
+}
+
 const labelsByCategoryId = new Map(CATEGORY_OPTIONS.map(({ id, label }) => [id, label]));
 
 export function getCategoryLabel(id: string): string {

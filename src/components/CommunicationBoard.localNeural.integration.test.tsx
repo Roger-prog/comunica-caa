@@ -2,12 +2,14 @@ import { useMemo } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommunicationBoard } from "./CommunicationBoard";
+import boardControlPhrases from "../data/board-control-phrases.json";
 import { useSpeech } from "../hooks/useSpeech";
 import { applyPatientBoard } from "../lib/boardPresentation";
 import { DEFAULT_BOARD_SETTINGS, normalizeBoardSettings, type CustomSymbol } from "../lib/patientBoardModel";
 
 const faber = "pt_BR-faber-medium";
 const edresson = "pt_BR-edresson-low";
+const hint = boardControlPhrases.categoryHint.text;
 const photoText = "Quero falar com a minha mãe.";
 const quickText = "Por favor, faça uma pausa.";
 const local = vi.hoisted(() => ({
@@ -146,6 +148,7 @@ describe("CommunicationBoard with local neural synthesis", () => {
     await playButton("Ouvir frase");
 
     clickButton("Categorias");
+    await playButton(hint);
     clickButton("Frases rápidas");
     await playButton("Ouvir: Teste de pausa");
 
@@ -154,11 +157,25 @@ describe("CommunicationBoard with local neural synthesis", () => {
       ["Água", faber, 0.8],
       [photoText, faber, 0.8],
       ["Água Água " + photoText, faber, 0.8],
+      [hint, faber, 0.8],
       [quickText, faber, 0.8],
     ]));
     expect(utterances.every(([, voice, rate]) => voice === faber && rate === 0.8)).toBe(true);
-    expect(onPlayback.mock.calls).toEqual([["Água Água " + photoText], [quickText]]);
+    expect(onPlayback.mock.calls).toEqual([["Água Água " + photoText], [hint], [quickText]]);
     expect(nativeSpeak).not.toHaveBeenCalled();
+    expect(http).not.toHaveBeenCalled();
+  });
+
+  it.each(["pt-BR-FranciscaNeural", "pt-BR-AntonioNeural"])("plays the bundled hint with %s offline", async (voiceURI) => {
+    render(<BoardFixture voiceURI={voiceURI} rate={1} />);
+    clickButton("Categorias");
+    clickButton(hint);
+
+    await waitFor(() => expect(onPlayback).toHaveBeenCalledExactlyOnceWith(hint));
+    expect(createUrl.mock.lastCall?.[0]).toBeInstanceOf(Blob);
+    expect(createUrl.mock.lastCall?.[0]).toMatchObject({ type: "audio/mpeg" });
+    expect(countPlaybacks()).toBe(1);
+    expect(local.synthesize).not.toHaveBeenCalled();
     expect(http).not.toHaveBeenCalled();
   });
 

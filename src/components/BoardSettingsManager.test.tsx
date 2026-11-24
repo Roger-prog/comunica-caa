@@ -87,6 +87,35 @@ describe("Preferências da prancha", () => {
     expect(screen.getByRole("combobox", { name: "Voz da prancha" })).toHaveValue("local-pt-BR");
   });
 
+  it("saves a chosen ARASAAC category image and allows restoring the default", async () => {
+    const lookup = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify([
+      { id: 7114, labels: ["Gato"] },
+    ])));
+    try {
+      render(<BoardSettingsManager data={board} patientId="patient-1" onChange={vi.fn()} />);
+      switchSection("Organização");
+      fireEvent.change(screen.getByRole("combobox", { name: "Categoria a editar" }), { target: { value: "animais" } });
+      fireEvent.click(screen.getByText("Imagem da categoria"));
+      const search = screen.getByRole("searchbox", { name: "Pesquisar pictograma do ARASAAC" });
+      fireEvent.change(search, { target: { value: "gato" } });
+      fireEvent.keyDown(search, { key: "Enter" });
+      fireEvent.click(await screen.findByRole("button", { name: "Gato, pictograma 7114" }));
+      fireEvent.click(screen.getByRole("button", { name: "Salvar preferências" }));
+      expect(await screen.findByText("Preferências da prancha salvas.")).toBeVisible();
+      expect(actions.save).toHaveBeenLastCalledWith("patient-1", expect.objectContaining({ categoryImages: { animais: 7114 } }), 3);
+      expect(normalizeBoardSettings({}).categoryImages).toEqual({});
+      expect(normalizeBoardSettings({ categoryImages: { animais: 7114, "<invalid>": 3, pessoas: -1 } }).categoryImages)
+        .toEqual({ animais: 7114 });
+
+      fireEvent.click(screen.getByRole("button", { name: "Restaurar imagem padrão" }));
+      fireEvent.click(screen.getByRole("button", { name: "Salvar preferências" }));
+      await waitFor(() => expect(actions.save).toHaveBeenLastCalledWith("patient-1", expect.objectContaining({ categoryImages: {} }), 4));
+      expect(await screen.findByText("Preferências da prancha salvas.")).toBeVisible();
+    } finally {
+      lookup.mockRestore();
+    }
+  });
+
   it("pins a custom symbol separately from favorites and saves the previewed order", async () => {
     render(<BoardSettingsManager data={board} patientId="patient-1" onChange={vi.fn()} />);
     switchSection("Favoritos e Início");

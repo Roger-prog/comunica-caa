@@ -6,6 +6,7 @@ import type {
   ProfessionalMember,
 } from "../lib/database.types";
 import {
+  approveProfessionalMember,
   createInvitation,
   invitationMailto,
   listGuardianMembers,
@@ -129,6 +130,21 @@ export function PatientInvitation({
     }
   }
 
+  async function approve(member: ProfessionalMember) {
+    if (!child || preview || pending) return;
+    const request = context.current;
+    setPending(true);
+    setError(null);
+    try {
+      await approveProfessionalMember(child.id, member.professional_id);
+      if (context.current === request) setVersion((current) => current + 1);
+    } catch {
+      if (context.current === request) setError("Não foi possível autorizar o vínculo.");
+    } finally {
+      if (context.current === request) setPending(false);
+    }
+  }
+
   return (
     <section className="surface p-6" aria-labelledby="patient-invitation-title">
       <div className="mb-3 flex items-center gap-2 text-brand-700">
@@ -140,8 +156,8 @@ export function PatientInvitation({
       {child ? (
         <p className="text-sm text-stone-600">
           Convide um profissional para acompanhar o histórico de{" "}
-          <strong>{child.nome}</strong> e exportar relatórios. Ele terá acesso
-          de consulta enquanto o vínculo estiver ativo.
+          <strong>{child.nome}</strong> e exportar relatórios. O profissional acessa
+          os registros após sua autorização.
         </p>
       ) : (
         <p className="text-sm text-stone-600">
@@ -163,8 +179,8 @@ export function PatientInvitation({
       </button>
       <p className="mt-3 text-xs leading-5 text-stone-500">
         O código é de uso único e vale por 10 minutos. Gerar outro código invalida
-        o anterior. O envio permite consultar o histórico e gerar relatórios
-        deste perfil.
+        o anterior. Depois que o profissional informar o código, atualize os vínculos
+        para conferir a atuação informada e decidir se deseja autorizar o acesso.
       </p>
       {invitation && (
         <div
@@ -211,6 +227,10 @@ export function PatientInvitation({
         </div>
       )}
       <h3 className="mt-6 font-semibold">Profissionais vinculados</h3>
+      {child && !preview && !error && <button type="button" className="button-secondary mt-3"
+        disabled={loading || pending} onClick={() => setVersion((current) => current + 1)}>
+        Atualizar vínculos
+      </button>}
       {members.length > 0 && (
         <p className="mt-2 text-sm text-stone-600" id="patient-board-sharing">
           Autorize a edição da prancha para permitir que o profissional configure os símbolos,
@@ -232,16 +252,22 @@ export function PatientInvitation({
                 <p className="text-sm font-semibold">
                   {member.professional_name}
                 </p>
+                {member.approved_at !== undefined && <p className="mt-1 text-sm text-stone-600">
+                  {member.professional_category || "Categoria profissional não informada"}
+                  {member.professional_category && (member.professional_validated ? " · Categoria validada" : " · Categoria declarada")}
+                </p>}
                 <p className="mt-1 text-xs text-stone-500">
-                  Vinculado em{" "}
-                  {new Date(member.created_at).toLocaleDateString("pt-BR")}
+                  {member.approved_at === null ? "Solicitado em " : "Vinculado em "}
+                  {new Date(member.approved_at ?? member.created_at).toLocaleDateString("pt-BR")}
                 </p>
                 <p className="mt-1 text-xs text-stone-600" role="status">
-                  {member.board_access ? "Edição da prancha autorizada" : "Acesso ao histórico e aos relatórios"}
+                  {member.approved_at === null ? "Aguardando sua autorização" : member.board_access
+                    ? "Edição da prancha autorizada" : "Acesso ao histórico e aos relatórios"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
+                {member.approved_at === null ? <button type="button" className="button-primary" disabled={pending}
+                  onClick={() => void approve(member)}>Autorizar vínculo</button> : <button
                   type="button"
                   className="button-secondary"
                   disabled={pending}
@@ -250,7 +276,7 @@ export function PatientInvitation({
                   onClick={() => void changeBoardAccess(member)}
                 >
                   {member.board_access ? "Retirar acesso à prancha" : "Autorizar edição da prancha"}
-                </button>
+                </button>}
                 <button
                   type="button"
                   className="button-secondary"

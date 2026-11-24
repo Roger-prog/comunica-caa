@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
-  ArrowLeft, Camera, Check, Droplets, House, LayoutGrid, LockKeyhole,
+  Camera, Check, Droplets, House, LayoutGrid, LockKeyhole,
   MessageCircle, Plus, Pointer, Search, Sparkles, Square, Star, Stethoscope, Trash2, Volume2, X,
   type LucideIcon,
 } from "lucide-react";
@@ -10,6 +10,7 @@ import {
   DEFAULT_HOME_SYMBOL_IDS,
   ESSENTIAL_PICTOGRAM_IDS,
   HEALTH_CATEGORIES,
+  getBoardCategoryOptions,
   NEEDS_PICTOGRAM_IDS,
   getPictogramSpeech,
   searchPictograms,
@@ -17,12 +18,14 @@ import {
   type Pictogram,
 } from "../data/pictograms";
 import { hasBundledSpeech } from "../data/bundledSpeech";
+import boardControlPhrases from "../data/board-control-phrases.json";
 import type { useSpeech } from "../hooks/useSpeech";
 import { DEFAULT_BOARD_SETTINGS, type BoardQuickPhrase, type BoardSettings } from "../lib/patientBoardModel";
 import { PictogramPicture } from "./PictogramPicture";
 import { SpeechFeedback } from "./SpeechFeedback";
 import { LibrasPanel } from "./LibrasPanel";
 import { CategoriesPictogram, OopsPictogram, PagePictogram } from "./ControlPictograms";
+import { CategoryPicture } from "./CategoryPicture";
 
 interface CommunicationBoardProps {
   onSelect: (pictogram: Pictogram) => void;
@@ -45,6 +48,9 @@ const VIEWS = [
   ["custom", "Meus símbolos"], ["quick", "Frases rápidas"],
 ] as const;
 type View = typeof VIEWS[number][0];
+type BoardPage = { view: View; category: string; query: string; page: number };
+const INITIAL_PAGE: BoardPage = { view: "home", category: "", query: "", page: 0 };
+const HINT_PHRASE = boardControlPhrases.categoryHint.text;
 
 /** Cores fortes e bem diferentes entre si: a criança reconhece a área pela cor, sem precisar ler. */
 const PALETTE = [
@@ -93,30 +99,25 @@ export function CommunicationBoard({
   onStartCommunication, modePending,
   onUnlockRequest, catalog = CATALOG_PICTOGRAMS, settings = DEFAULT_BOARD_SETTINGS,
 }: CommunicationBoardProps) {
-  const [query, setQuery] = useState("");
-  const [selectedView, setView] = useState<View>("home");
+  const [navigation, setNavigation] = useState([INITIAL_PAGE]);
+  const { view: selectedView, category: selectedCategory, query, page } = navigation.at(-1)!;
   const view = selectedView === "quick" && !settings.quickPhrasesEnabled ? "home" : selectedView;
-  const [selectedCategory, setCategory] = useState("");
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const categoryMenuId = useId();
   const categoriesButton = useRef<HTMLButtonElement>(null);
-  const [page, setPage] = useState(0);
   const [sentence, setSentence] = useState<Pictogram[]>([]);
+  const [showHint, setShowHint] = useState(false);
   const [lastSelected, setLastSelected] = useState<string | null>(null);
-  const [confirmClear, setConfirmClear] = useState(false);
   const [limitReached, setLimitReached] = useState(false);
   const [oopsFlash, setOopsFlash] = useState(false);
   const oopsTimer = useRef<number>(0);
-  const clearButton = useRef<HTMLButtonElement>(null);
   const composerHeading = useRef<HTMLHeadingElement>(null);
   const categoryHeading = useRef<HTMLHeadingElement>(null);
   const activeQuery = isChildMode ? "" : query.trim();
   const usingCategory = view === "categories" || view === "health";
+  const inCategoryArea = !activeQuery && usingCategory;
   const showingQuick = !activeQuery && view === "quick" && settings.quickPhrasesEnabled;
   const categoryChoices = useMemo(() => {
-    const available = (view === "health" ? HEALTH_CATEGORIES : [
-      ...new Set<string>([...CATALOG_CATEGORIES, ...catalog.flatMap((item) => item.categories ?? [item.category])]),
-    ]).filter((label) =>
+    const available = (view === "health" ? HEALTH_CATEGORIES : getBoardCategoryOptions(catalog).map(({ label }) => label)).filter((label) =>
       (view === "health" || !HEALTH_CATEGORIES.some((health) => health === label)) &&
       (settings.enabledCategories === null || settings.enabledCategories.includes(toCategoryId(label))));
     const preferred = new Set([...settings.categoryOrder, ...settings.favoriteCategories]);
@@ -150,7 +151,7 @@ export function CommunicationBoard({
     return [...first, ...matching.filter((item) => !promoted.has(item.id))];
   }, [activeQuery, catalog, category, settings.favorites, settings.homeSymbols, settings.symbolOrder, view]);
 
-  const showingGroups = !activeQuery && usingCategory && !category;
+  const showingGroups = inCategoryArea && !category;
   const resultCount = showingQuick ? settings.quickPhrases.length : results.length;
   const pageCount = Math.max(1, Math.ceil(resultCount / settings.pageSize));
   const visiblePage = Math.min(page, pageCount - 1);
@@ -171,10 +172,6 @@ export function CommunicationBoard({
   const { prefetch, prepareSentence } = speech;
 
   useEffect(() => {
-    if (page !== visiblePage) setPage(visiblePage);
-  }, [page, visiblePage]);
-
-  useEffect(() => {
     const safeWords = visible.filter((item) => !item.privateSpeech)
       .map(getPictogramSpeech).filter(hasBundledSpeech);
     if (safeWords.length) return prefetch(safeWords, { voiceURI, rate, offlineOnly: true });
@@ -185,24 +182,31 @@ export function CommunicationBoard({
     return prepareSentence(spokenWords, { voiceURI, rate });
   }, [spokenWords, canPrepare, prepareSentence, voiceURI, rate]);
 
-  function open(next: View) {
-    setCategoriesOpen(false);
-    setView(next);
-    setCategory("");
-    setQuery("");
-    setPage(0);
+  function updatePage(changes: Partial<BoardPage>) {
+    setNavigation((current) => [...current.slice(0, -1), { ...current.at(-1)!, ...changes }]);
   }
 
-  function closeCategories() {
-    setCategoriesOpen(false);
-    requestAnimationFrame(() => categoriesButton.current?.focus());
+  function open(next: View, nextCategory = "") {
+    setNavigation((current) => [...current, { ...INITIAL_PAGE, view: next, category: nextCategory }]);
+    requestAnimationFrame(() => categoryHeading.current?.focus());
   }
 
-  function toggleCategories() {
-    if (categoriesOpen) closeCategories();
-    else {
-      setCategoriesOpen(true);
+  function openCategories() {
+    const parent = navigation.findIndex((item) => item.view === "categories" && !item.category);
+    if (parent >= 0) {
+      setNavigation((current) => [...current.slice(0, parent), { ...INITIAL_PAGE, view: "categories" }]);
       requestAnimationFrame(() => categoryHeading.current?.focus());
+    } else open("categories");
+  }
+
+  function goBack() {
+    if (navigation.length > 1) {
+      setNavigation((current) => current.slice(0, -1));
+      requestAnimationFrame(() => (view === "categories" ? categoriesButton.current ?? categoryHeading.current : categoryHeading.current)?.focus());
+    } else if (activeQuery) {
+      updatePage({ query: "", page: 0 });
+    } else if (visiblePage > 0) {
+      updatePage({ page: visiblePage - 1 });
     }
   }
 
@@ -245,38 +249,27 @@ export function CommunicationBoard({
     setLastSelected(null);
     setLimitReached(false);
     if (sentence.length === 1) {
-      setConfirmClear(false);
       composerHeading.current?.focus();
     }
   }
 
-  function closeClear(reset: boolean) {
-    setConfirmClear(false);
-    if (reset) {
-      speech.stop();
-      setSentence([]);
-      setLastSelected(null);
-      setLimitReached(false);
-      composerHeading.current?.focus();
-    } else clearButton.current?.focus();
+  /** Limpa toda a frase imediatamente, sem exibir confirmação. */
+  function clearSentence() {
+    speech.stop();
+    setSentence([]);
+    setLastSelected(null);
+    setLimitReached(false);
+    composerHeading.current?.focus();
   }
 
   function playSentence() {
-    if (sentence.length && speech.supported) playMessage(spokenWords);
+    if (sentence.length && speech.supported) {
+      setShowHint(false);
+      playMessage(spokenWords);
+    }
   }
 
   useEffect(() => () => window.clearTimeout(oopsTimer.current), []);
-
-  const yesItem = useMemo(() => catalog.find((item) => item.id === "sim"), [catalog]);
-  const noItem = useMemo(() => catalog.find((item) => item.id === "nao"), [catalog]);
-  const categoryImages = useMemo(() => {
-    const images = new Map<string, Pictogram>();
-    for (const item of catalog) {
-      if (!item.imageUrl && !item.imagePath && !item.symbol) continue;
-      for (const label of item.categories ?? [item.category]) if (!images.has(label)) images.set(label, item);
-    }
-    return images;
-  }, [catalog]);
 
   /** "Ops": desfaz somente a última figura escolhida. */
   function oops() {
@@ -298,18 +291,14 @@ export function CommunicationBoard({
   const imageSize = isChildMode && settings.imageSize !== "large" ? "regular" : settings.imageSize;
 
   const labelSize = isChildMode && settings.labelSize === "regular" ? "large" : settings.labelSize;
-  const visibleViews = VIEWS.filter(([key]) => key !== "quick" || settings.quickPhrasesEnabled);
+  const canGoBack = navigation.length > 1 || Boolean(activeQuery) || visiblePage > 0;
+  const secondaryViews = VIEWS.filter(([key]) => key !== "categories" && (key !== "quick" || settings.quickPhrasesEnabled));
 
   return (
     <div className={settings.contrast ? "board-contrast kid-board rounded-3xl bg-stone-200 p-2 text-black" : "kid-board"}
       style={boardStyle}>
       <div className="kid-top">
-        {yesItem && <button type="button" className="kid-answer order-2 md:order-1" style={colorVars({ bg: "#2f9e44", ink: "#111" })}
-          aria-label="Responder sim" onClick={() => select(yesItem)}>
-          <Check size={44} strokeWidth={4} aria-hidden="true" /><span>sim</span>
-        </button>}
-
-        <section className={"kid-strip order-1 col-span-2 md:order-2 md:col-span-1" + (oopsFlash ? " kid-oops" : "")}
+        <section className={"kid-strip" + (sentence.length === 0 ? " kid-strip-empty" : "") + (oopsFlash ? " kid-oops" : "")}
           aria-labelledby="sentence-title">
           <h2 ref={composerHeading} id="sentence-title" tabIndex={-1} className="sr-only">O que vamos comunicar?</h2>
           <div className="kid-strip-row">
@@ -339,19 +328,19 @@ export function CommunicationBoard({
               {speech.speaking && <button type="button" className="board-control" onClick={speech.stop}>
                 <Square size={15} aria-hidden="true" /> Parar áudio
               </button>}
-              {sentence.length > 0 && <button ref={clearButton} type="button" className="board-control" aria-expanded={confirmClear}
-                onClick={() => setConfirmClear(true)}>
-                <Trash2 size={16} aria-hidden="true" /> Limpar
-              </button>}
+              <button type="button" className="board-control"
+                disabled={!sentence.length} onClick={clearSentence}>
+                <Trash2 size={16} aria-hidden="true" /> Limpar frase
+              </button>
             </div>
           </div>
           <span className="sr-only" role="status">{sentence.length} símbolos na frase.</span>
-          {confirmClear && <div role="group" aria-label="Confirmar limpeza da frase"
-            className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-brand-50 p-2"
-            onKeyDown={(event) => { if (event.key === "Escape") closeClear(false); }}>
-            <p className="grow text-base font-semibold">Limpar todos os símbolos da frase?</p>
-            <button type="button" className="board-control" autoFocus onClick={() => closeClear(false)}>Manter frase</button>
-            <button type="button" className="board-control board-control-active" onClick={() => closeClear(true)}>Limpar frase</button>
+          {showHint && <div className="mt-2 flex items-center justify-between gap-2 rounded-2xl bg-brand-50 p-2">
+            <p className="text-base font-semibold">{HINT_PHRASE}</p>
+            <button type="button" className="board-control" aria-label="Ocultar frase de dica"
+              onClick={() => { setShowHint(false); composerHeading.current?.focus(); }}>
+              <X size={18} aria-hidden="true" />
+            </button>
           </div>}
           {limitReached && <p role="status" className="mt-2 text-sm text-brand-700">
             A frase tem o limite de {settings.maxSentenceSymbols} símbolos. Remova um para continuar.
@@ -360,13 +349,8 @@ export function CommunicationBoard({
             A leitura em voz alta está indisponível. Os símbolos continuam acessíveis.
           </p>}
           <SpeechFeedback speech={speech} compact />
-          {sentence.length > 0 && !isChildMode && <LibrasPanel key={spokenWords.join(" ")} phrase={spokenWords.join(" ")} />}
+          {!isChildMode && <LibrasPanel />}
         </section>
-
-        {noItem && <button type="button" className="kid-answer order-3" style={colorVars({ bg: "#c92a2a", ink: "#fff" })}
-          aria-label="Responder não" onClick={() => select(noItem)}>
-          <X size={44} strokeWidth={4} aria-hidden="true" /><span>não</span>
-        </button>}
       </div>
 
       {!isChildMode && <div className="flex flex-wrap items-center gap-1.5">
@@ -376,7 +360,7 @@ export function CommunicationBoard({
           <label htmlFor="symbol-search" className="sr-only">Buscar símbolo</label>
           <input id="symbol-search" type="search" className="input-field min-h-11 py-1 pl-9"
             placeholder="Buscar símbolo…" value={query}
-            onChange={(event) => { setQuery(event.target.value); setCategoriesOpen(false); setPage(0); }} />
+            onChange={(event) => updatePage({ query: event.target.value, page: 0 })} />
         </div>
         {onStartCommunication && <button type="button" className="board-control ml-auto"
           aria-label="Iniciar modo comunicação" disabled={modePending} onClick={onStartCommunication}>
@@ -384,56 +368,26 @@ export function CommunicationBoard({
         </button>}
       </div>}
 
+      <div className="kid-main">
       <div className="kid-body">
-        <section aria-labelledby="symbols-title" className="kid-cards"
-          onKeyDown={(event) => { if (categoriesOpen && event.key === "Escape") { event.preventDefault(); closeCategories(); } }}>
+        <section id={categoryMenuId} aria-labelledby="symbols-title" className="kid-cards"
+          onKeyDown={(event) => { if (inCategoryArea && event.key === "Escape") { event.preventDefault(); goBack(); } }}>
           <div className="flex flex-wrap items-center gap-2">
-            {categoriesOpen && <button type="button" className="kid-back" onClick={closeCategories}>
-              <ArrowLeft size={22} aria-hidden="true" /> Voltar à prancha
-            </button>}
-            {!categoriesOpen && !activeQuery && usingCategory && category && (
-              <button type="button" className="kid-back"
-                onClick={() => { open(view); requestAnimationFrame(() => categoryHeading.current?.focus()); }}>
-                <ArrowLeft size={22} aria-hidden="true" /> Voltar às categorias
-              </button>
-            )}
             <h2 ref={categoryHeading} id="symbols-title" tabIndex={-1}
-              className={categoriesOpen || category || activeQuery ? "break-words text-xl font-bold" : "sr-only"}>
-              {categoriesOpen ? "Categorias" : sectionTitle}
+              className={inCategoryArea || activeQuery ? "break-words text-xl font-bold" : "sr-only"}>
+              {sectionTitle}
             </h2>
-            {!categoriesOpen && !showingGroups && visiblePage > 0 && <button type="button" className="board-control ml-auto"
-              onClick={() => setPage(visiblePage - 1)} aria-label="Página anterior">
-              <PagePictogram direction="previous" className="kid-previous-pictogram" /> Página anterior
-            </button>}
           </div>
 
-          {categoriesOpen ? <div role="group" aria-label="Áreas da prancha" id={categoryMenuId} className="kid-area-grid">
-            {visibleViews.map(([key, label, shortLabel]) => {
-              const { Icon, ...tone } = VIEW_STYLE[key];
-              const on = !activeQuery && view === key;
-              const areaLabel = key === "categories" ? "Todas as categorias" : label;
-              return <button type="button" key={key} aria-pressed={on} aria-label={areaLabel}
-                className={on ? "kid-tab kid-tab-on" : "kid-tab"} style={colorVars(tone)}
-                onClick={() => { open(key); requestAnimationFrame(() => categoryHeading.current?.focus()); }}>
-                <Icon size={48} aria-hidden="true" />
-                <span>{key === "categories" ? areaLabel : shortLabel ?? label}</span>
-              </button>;
-            })}
-          </div> : <>
-          {!activeQuery && view === "categories" && <button type="button" className="board-control self-start"
-            disabled={!speech.supported} onClick={() => playMessage(["Não está no meu livro, mas vou dar uma dica"])}>
-            <MessageCircle size={20} aria-hidden="true" /> Não está no meu livro, mas vou dar uma dica
-          </button>}
-
           {showingGroups ? (
-            categoryChoices.length ? <div className="kid-folders">
+            categoryChoices.length ? <div role="group" aria-label="Categorias disponíveis" className="kid-folders">
               {categoryChoices.map((label) => {
-                const image = categoryImages.get(label);
+                const categoryId = toCategoryId(label);
                 return <button key={label} type="button" className="kid-folder" style={colorVars(categoryPalette(label))}
-                  onClick={() => { setCategory(label); setPage(0); requestAnimationFrame(() => categoryHeading.current?.focus()); }}>
-                  {image && <PictogramPicture item={image} size="small" big plain />}
+                  onClick={() => open(view, label)}>
+                  <CategoryPicture categoryId={categoryId} override={settings.categoryImages[categoryId]} />
                   <span>{label}</span>
-                  {settings.favoriteCategories.includes(toCategoryId(label)) && <Star size={18} aria-hidden="true" />}
+                  {settings.favoriteCategories.includes(categoryId) && <Star size={18} aria-hidden="true" />}
                 </button>;
               })}
             </div> : <p role="status" className="surface p-4">Nenhuma categoria habilitada.</p>
@@ -479,36 +433,66 @@ export function CommunicationBoard({
                 : "Nenhum símbolo nesta área."}
             </p>
           )}
-          {sentence.length > 0 && !isChildMode && <div className="flex justify-end">
+          {showingGroups && view === "categories" && <div className="space-y-2">
+            <h3 className="font-bold">Outras áreas da prancha</h3>
+            <div role="group" aria-label="Áreas da prancha" className="kid-area-grid">
+              {secondaryViews.map(([key, label, shortLabel]) => {
+                const { Icon, ...tone } = VIEW_STYLE[key];
+                return <button type="button" key={key} aria-label={label} className="kid-tab" style={colorVars(tone)} onClick={() => open(key)}>
+                  <Icon size={48} aria-hidden="true" />
+                  <span>{shortLabel ?? label}</span>
+                </button>;
+              })}
+            </div>
+          </div>}
+          {!showingGroups && <div role="group" aria-label="Paginação da prancha" className="kid-pagination">
+            <span role="status" className="kid-pagination-status">
+              Página {visiblePage + 1} de {pageCount}
+            </span>
+            <div className="kid-pagination-actions">
+              {visiblePage > 0 && (navigation.length > 1 || activeQuery) && <button type="button"
+                className="board-control kid-pagination-btn" onClick={() => updatePage({ page: visiblePage - 1 })}>
+                <PagePictogram direction="previous" className="kid-previous-pictogram" /> Página anterior
+              </button>}
+              <button type="button" className="board-control kid-pagination-btn"
+                disabled={visiblePage === pageCount - 1} onClick={() => updatePage({ page: visiblePage + 1 })}>
+                <PagePictogram className="kid-previous-pictogram" /> Próxima página
+              </button>
+            </div>
+          </div>}
+          {sentence.length > 0 && !isChildMode && !showingGroups && <div className="flex justify-end">
             <button type="button" className="board-control" onClick={() => composerHeading.current?.focus()}>Voltar à frase</button>
           </div>}
-          </>}
         </section>
       </div>
 
-      <div role="group" aria-label="Controles da prancha" className="kid-dock">
+      <aside role="group" aria-label="Controles da prancha" className="kid-dock">
+        <button type="button" className="kid-dock-btn kid-page" disabled={!canGoBack} onClick={goBack}>
+          <PagePictogram direction="previous" className="kid-control-pictogram" /> <span className="kid-control-label">Voltar a página</span>
+        </button>
         <button type="button" className="kid-dock-btn kid-oops-btn" disabled={!sentence.length}
           aria-label="Ops, remover último" onClick={oops}>
           <OopsPictogram className="kid-control-pictogram" /> <span className="kid-control-label">Ops</span>
         </button>
-        <button type="button" className="kid-dock-btn kid-page" disabled={categoriesOpen || showingGroups || visiblePage === pageCount - 1}
-          onClick={() => setPage(visiblePage + 1)} aria-label="Próxima página">
-          <PagePictogram className="kid-control-pictogram" /> <span className="kid-control-label">Próxima página</span>
-        </button>
-        <button ref={categoriesButton} type="button" className="kid-dock-btn kid-categories-btn"
-          aria-label="Categorias" aria-expanded={categoriesOpen} aria-controls={categoryMenuId} onClick={toggleCategories}>
-          <CategoriesPictogram className="kid-control-pictogram" /> <span className="kid-control-label">Categorias</span>
-        </button>
-        {!categoriesOpen && !showingGroups && pageCount > 1 && <>
-          <span role="status" className={isChildMode ? "sr-only" : "kid-dock-status"}>Página {visiblePage + 1} de {pageCount}</span>
-          {isChildMode && <span className="kid-dots" aria-hidden="true">
-            {Array.from({ length: pageCount }, (_, dot) => <i key={dot} className={dot === visiblePage ? "on" : ""} />)}
-          </span>}
-        </>}
+        {inCategoryArea ? (
+          <button type="button" className="kid-dock-btn kid-hint-btn" disabled={!speech.supported}
+            onClick={() => { setShowHint(true); playMessage([HINT_PHRASE]); }}>
+            <MessageCircle size={36} aria-hidden="true" /> <span className="kid-control-label">{HINT_PHRASE}</span>
+          </button>
+        ) : (
+          <button ref={categoriesButton} type="button" className="kid-dock-btn kid-categories-btn"
+            aria-controls={categoryMenuId} onClick={openCategories}>
+            <CategoriesPictogram className="kid-control-pictogram" /> <span className="kid-control-label">Categorias</span>
+          </button>
+        )}
+        {isChildMode && pageCount > 1 && <span className="kid-dots" aria-hidden="true">
+          {Array.from({ length: pageCount }, (_, dot) => <i key={dot} className={dot === visiblePage ? "on" : ""} />)}
+        </span>}
         {isChildMode && <button type="button" onClick={onUnlockRequest} aria-label="Sair do modo comunicação"
           className="kid-exit">
-          <LockKeyhole size={20} aria-hidden="true" /> Sair
+          <LockKeyhole size={20} aria-hidden="true" /> <span>Sair do modo comunicação</span>
         </button>}
+      </aside>
       </div>
     </div>
   );

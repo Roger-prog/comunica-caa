@@ -33,12 +33,12 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 
 ## Perfis e acompanhamento
 
-- Cadastro com escolha entre Responsável e Fonoaudiólogo.
+- Cadastro como responsável ou profissional com indicação da área de atuação.
 - Acesso por e-mail e senha ou conta Google.
 - Confirmação de e-mail e recuperação de senha por link.
 - Conclusão do perfil no primeiro acesso pelo Google.
 - Painéis e navegação de acordo com o tipo de conta.
-- Perfis individuais de crianças vinculados ao usuário.
+- Perfis individuais de crianças com acesso de corresponsáveis por convite, com permissões de edição e de gestão definidas separadamente.
 - Histórico por perfil, com pictogramas, pesquisa, filtro de período e filtros para seleções de símbolos e mensagens reproduzidas.
 - Registro de símbolos do catálogo e símbolos personalizados. Mensagens completas são registradas quando a leitura começa.
 - Controles para pausar novos registros e excluir o histórico inteiro ou registros anteriores ao período escolhido.
@@ -56,7 +56,7 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 
 - Convites individuais com código de seis dígitos, uso único e validade de 10 minutos.
 - Preparação de e-mail com o convite para revisão e envio pelo responsável.
-- Painel do fonoaudiólogo com os pacientes vinculados e acesso de consulta ao histórico.
+- Painel do profissional com os pacientes vinculados após aprovação do responsável e acesso de consulta ao histórico.
 - Seleção de período, paginação dos registros e exportação de relatórios em PDF.
 - Relatórios com identificação do paciente, indicadores de uso, tabela de comunicações e paginação.
 - Consulta e remoção dos vínculos pelo responsável.
@@ -82,6 +82,14 @@ Com Node 24, execute `npm ci`. Para explorar dados de demonstração, use `npm r
 
 ## Relatórios e comunicação
 
-O relatório PDF inclui o período, totais, gráficos de frequência e uma tabela paginada. Na Evolução, a gravação de pronúncia permite ouvir e descartar um trecho local. A tradução em Libras é opcional e disponibiliza somente a frase escolhida ao intérprete. A migração 009 habilita a categoria profissional e a exclusão da própria conta. Contas com fotos devem remover as imagens antes da exclusão.
+O relatório PDF inclui o período, totais, gráficos de frequência e uma tabela paginada. A consulta do histórico é paginada no banco e usa datas de calendário no fuso de São Paulo. Na Evolução, o paciente pode gravar, ouvir e salvar um trecho com autorização. O responsável principal define a retenção e quais profissionais vinculados podem ouvir e anotar as gravações. As observações são feitas pelo profissional.
 
-A migração `009_account_preferences.sql` deve ser aplicada ao banco antes de disponibilizar as novas opções de conta no ambiente real. A integração dos arquivos e os testes locais não executam essa migração em produção. O carregamento do widget VLibras foi verificado; a tradução completa pelo avatar depende do serviço externo e ainda requer homologação.
+O VLibras é opcional e roda em uma área isolada que contém apenas o guia público da prancha. A tradução depende do serviço externo. Atendimentos que exigem interpretação clínica devem contar com intérprete profissional.
+
+## Migrações e operação
+
+Em um banco atualizado até a migração 009, aplique as migrações 010 a 014 em ordem antes de publicar o frontend. Valide-as primeiro em um ambiente de teste com dados fictícios.
+
+- **010 e 011** habilitam papéis de conta, aprovação de vínculos profissionais e corresponsáveis. O convite de corresponsável vale uma hora, serve para um único uso e exige a conta com o e-mail confirmado indicado pelo responsável. Os pedidos de habilitação profissional ficam em `comunica_react_private.professional_requests`. Depois de verificar a documentação pelos procedimentos do serviço, um operador com acesso SQL privilegiado usa `public.review_caa_professional_role(uuid, boolean)` para aprovar ou recusar o pedido.
+- **012 e 013** adicionam áudio privado e consultas de histórico. A retenção padrão do áudio é de 90 dias. Reduzir o prazo também antecipa a expiração das gravações existentes. A migração 012 configura a rotina de limpeza quando `pg_cron` está disponível. Confira o agendamento no banco de homologação. A expiração bloqueia o acesso ao áudio mesmo entre execuções da limpeza.
+- **014** exige login recente e confirmação explícita para exclusão de conta. Se houver outro responsável habilitado a assumir um paciente compartilhado, a tela informa quem receberá a responsabilidade antes da exclusão. Casos sem sucessor ou com objetos do Storage em nome da conta entram na fila restrita `comunica_react_private.account_deletion_reviews`. A equipe de privacidade deve revisar a destinação dos dados e dos arquivos, conforme as autorizações e a política de retenção do serviço. Use a API de Storage para transferir ou excluir arquivos. Configure `VITE_CONTACT_NAME` e `VITE_CONTACT_EMAIL` com o canal responsável pelo atendimento.

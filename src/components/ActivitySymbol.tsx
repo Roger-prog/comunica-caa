@@ -22,7 +22,7 @@ export function ActivitySymbol({ event, catalog }: {
     id: event.pictograma_id,
     label: event.rotulo,
     category: event.categoria ?? "",
-    color: current?.color ?? "#efebf9",
+    color: "#f4effb",
     symbol: "",
     imagePath: snapshot ? undefined : current?.imagePath,
     imageUrl: snapshot || current?.imageUrl,

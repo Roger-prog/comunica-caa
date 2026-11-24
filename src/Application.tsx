@@ -157,7 +157,7 @@ function AuthenticatedWorkspace({ childMode }: { childMode: ChildModeState }) {
   const { user, isMock } = useAuth();
   return (
     <Workspace
-      key={user!.id}
+      key={`${user!.id}:${user!.role}`}
       preview={isMock}
       publicPreview={false}
       childMode={childMode}

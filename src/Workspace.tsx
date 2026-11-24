@@ -1,4 +1,6 @@
 import { AccountOptions } from "./components/AccountOptions";
+import { ProfessionalAccountSection } from "./components/ProfessionalAccountSection";
+import { GuardianLinks, LinkGuardian, useGuardianAccess } from "./components/GuardianLinks";
 import { rolesForPath } from "./auth/authRouting";
 import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
@@ -23,6 +25,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { CommunicationBoard } from "./components/CommunicationBoard";
 import { ChildModePinDialog } from "./components/ChildModePinDialog";
 import { Evolution, History } from "./components/ActivityViews";
+import { PronunciationRecordings } from "./components/PronunciationRecordings";
 import { useSpeech } from "./hooks/useSpeech";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useChildMode } from "./hooks/useChildMode";
@@ -85,7 +88,7 @@ const navigation = [
     id: "professional" as const,
     label: "Profissional",
     Icon: Stethoscope,
-    title: "Acompanhamento fonoaudiológico",
+    title: "Acompanhamento profissional",
     description:
       "Vincule pacientes por convite, consulte o histórico e exporte relatórios.",
   },
@@ -121,7 +124,7 @@ export default function Workspace({
   publicPreview: boolean;
   childMode: ChildModeState;
 }) {
-  const { user, session, signOut } = useAuth();
+  const { user, session, signOut, retrySession } = useAuth();
   const routeTo = useNavigate();
   const location = useLocation();
   const routePrefix = publicPreview ? "/demonstracao" : "";
@@ -141,17 +144,20 @@ export default function Workspace({
   const view: View = isChildMode ? "board" : (requestedView ?? "board");
   const [preferences, setPreferences] = useState(readPreferences);
   const patientId = canManageChildren && !preview ? workspace.selectedChild?.id : undefined;
+  const patientIsOwned = Boolean(patientId && workspace.selectedChild?.usuario_id === user?.id);
+  const guardianAccess = useGuardianAccess(patientId, patientIsOwned);
   const patientBoard = usePatientBoard(patientId, session?.user.id, Boolean(patientId));
   const boardCatalog = useMemo(() => applyPatientBoard(patientBoard.board), [patientBoard.board]);
   const historyCatalog = useMemo(() => view === "history"
     ? applyPatientBoard(patientBoard.board, true) : undefined, [patientBoard.board, view]);
   const savedSettings = patientBoard.board?.settings;
-  const recordHistory = !patientId || savedSettings?.historyRecording === true;
+  const recordHistory = !patientId || (guardianAccess?.can_edit && savedSettings?.historyRecording === true);
   const initialBoardPending = (workspace.loading && !workspace.selectedId) ||
     Boolean(patientId && !patientBoard.board);
   const boardVoice = savedSettings?.voiceURI ?? preferences.voiceURI;
   const boardRate = savedSettings?.rate ?? preferences.rate;
   const speech = useSpeech(undefined, `${view}/${workspace.selectedId}/${boardVoice}/${boardRate}`);
+  const [professionalTab, setProfessionalTab] = useState<"patients" | "account">("patients");
   const [showChildForm, setShowChildForm] = useState(false);
   const [childName, setChildName] = useState("");
   const [childError, setChildError] = useState<string | null>(null);
@@ -245,7 +251,7 @@ export default function Workspace({
       className={
         isChildMode
           ? "min-h-dvh bg-paper communication-mode"
-          : "min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]" + (view === "board" ? " workspace-board" : "")
+          : "min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]" + (view === "board" ? " workspace-board" : " workspace-dashboard")
       }
     >
       {!isChildMode && (
@@ -262,7 +268,6 @@ export default function Workspace({
               className={view === "board"
                 ? "mb-12 hidden items-center gap-2 lg:flex"
                 : "mb-2 flex items-center gap-2 sm:mb-4 lg:mb-12"}
-              aria-label="Comunica, conteúdo principal"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-600 text-white">
                 <MessageCircle size={25} aria-hidden="true" />
@@ -298,7 +303,7 @@ export default function Workspace({
                   >
                     <Icon size={20} className="shrink-0" aria-hidden="true" />
                     <span className="max-w-full text-xs leading-tight [overflow-wrap:anywhere] sm:text-sm">
-                      {id === "professional" ? <><span className="sm:hidden">Fono</span><span className="hidden sm:inline">{label}</span></> : label}
+                      {label}
                     </span>
                     {view === id && (
                       <ChevronRight
@@ -311,7 +316,7 @@ export default function Workspace({
                 ))}
             </nav>
             <div className="mt-auto hidden lg:block">
-              <div className="mb-6 rounded-2xl bg-[#faf8fc] p-4">
+              <div className="mb-6 rounded-2xl bg-[color:var(--workspace-sidebar-note,var(--color-brand-50))] p-4">
                 <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 text-brand-600">
                   <ShieldCheck size={19} aria-hidden="true" />
                 </span>
@@ -366,7 +371,7 @@ export default function Workspace({
               {canManageChildren && view !== "professional" && (
                 <>
                   <span
-                    className="hidden h-10 w-10 items-center justify-center rounded-full sm:flex bg-[#ede6f6] text-sm font-bold text-brand-600"
+                    className="hidden h-10 w-10 items-center justify-center rounded-full sm:flex bg-[color:var(--workspace-patient-badge,var(--color-brand-100))] text-sm font-bold text-brand-600"
                     aria-hidden="true"
                   >
                     {(workspace.selectedChild?.nome ?? "C")
@@ -646,8 +651,13 @@ export default function Workspace({
             <Evolution
               key={workspace.selectedId}
               events={workspace.events}
-              patientId={!preview ? workspace.selectedId : undefined}
-              loading={workspace.historyLoading}
+              patientId={patientId}
+              loading={workspace.loading}
+              recordings={<PronunciationRecordings
+                patientId={patientId}
+                preview={preview}
+                suggestions={workspace.events.slice(0, 8).map((event) => event.rotulo)}
+              />}
               onBoard={() => navigate("board")}
             />
           )}
@@ -655,47 +665,68 @@ export default function Workspace({
             <History
               key={workspace.selectedId}
               events={workspace.events}
-              loading={workspace.historyLoading}
+              loading={workspace.loading}
               catalog={historyCatalog}
-              hasOlder={workspace.hasOlder}
-              loadOlder={workspace.loadOlder}
+              patientId={patientId}
               onBoard={() => navigate("board")}
             />
           )}
           {view === "professional" && (
-            <Suspense
-              fallback={
-                <p role="status" className="text-sm text-stone-600">
-                  Carregando painel profissional…
-                </p>
-              }
-            >
-              <ProfessionalDashboard
-                userId={session?.user.id ?? null}
-                preview={preview}
-              />
-            </Suspense>
+            <div className="space-y-6">
+              <div role="tablist" aria-label="Áreas do profissional" className="flex flex-wrap gap-2">
+                <button type="button" role="tab" id="professional-patients-tab"
+                  aria-controls="professional-patients-panel" aria-selected={professionalTab === "patients"}
+                  className={professionalTab === "patients" ? "button-primary" : "button-secondary"}
+                  onClick={() => setProfessionalTab("patients")}>Acompanhamento de pacientes</button>
+                <button type="button" role="tab" id="professional-account-tab"
+                  aria-controls="professional-account-panel" aria-selected={professionalTab === "account"}
+                  className={professionalTab === "account" ? "button-primary" : "button-secondary"}
+                  onClick={() => setProfessionalTab("account")}>Meu perfil e conta</button>
+              </div>
+              {professionalTab === "patients" ? (
+                <div id="professional-patients-panel" role="tabpanel" aria-labelledby="professional-patients-tab">
+                  <Suspense fallback={<p role="status" className="text-sm text-stone-600">Carregando painel profissional…</p>}>
+                    <ProfessionalDashboard userId={session?.user.id ?? null} preview={preview} />
+                  </Suspense>
+                </div>
+              ) : (
+                <div id="professional-account-panel" role="tabpanel" aria-labelledby="professional-account-tab">
+                  {user && !preview ? <ProfessionalAccountSection user={user}
+                    signOut={signOut} onRoleChanged={retrySession} /> : (
+                    <section className="surface max-w-3xl p-6">
+                      <h2 className="text-lg font-semibold">Meu perfil e conta</h2>
+                      <p className="mt-2 text-sm text-stone-600">Entre em uma conta real para administrar seus papéis, dados profissionais e exclusão de conta.</p>
+                    </section>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {view === "settings" && (
             <div className="max-w-3xl space-y-6">
-              {canManageChildren && (
+              {canManageChildren && (preview || !patientId || patientIsOwned) && (
                 <PatientInvitation
                   key={"invitation-" + workspace.selectedId}
                   child={workspace.selectedChild}
                   preview={preview}
                 />
               )}
-              {patientId && workspace.selectedChild && session?.user.id && (
+              {canManageChildren && !preview && <LinkGuardian onLinked={(id) => {
+                workspace.setSelectedId(id);
+                workspace.reload();
+              }} />}
+              {patientId && guardianAccess && <GuardianLinks key={patientId} patientId={patientId} access={guardianAccess} />}
+              {patientId && guardianAccess?.can_edit && workspace.selectedChild && session?.user.id && (
                 <PatientBoardPanel
                   key={patientId}
                   patientId={patientId}
                   patientName={workspace.selectedChild.nome}
                   userId={session.user.id}
                   state={patientBoard}
-                  canDeleteAny
+                  canDeleteAny={patientIsOwned}
                 />
               )}
-              {patientId && patientBoard.board && (
+              {patientId && patientIsOwned && patientBoard.board && (
                 <HistoryControls
                   key={"history-" + patientId}
                   patientId={patientId}
@@ -823,7 +854,7 @@ export default function Workspace({
                   {canManageChildren ? "Conta e perfis" : "Conta profissional"}
                 </h2>
                 <p className="font-medium">{displayName}</p>
-                {user && !preview && <AccountOptions key={user.id} user={user} signOut={signOut} />}
+                {user && !preview && <AccountOptions key={user.id} user={user} signOut={signOut} onRoleChanged={retrySession} />}
                 {user && (
                   <p className="mt-1 break-all text-sm text-stone-500">
                     {user.email}

@@ -1,4 +1,5 @@
 import quickPhrases from "../data/default-quick-phrases.json";
+import { isArasaacId } from "./arasaacPaths";
 import { LOCAL_NEURAL_VOICES } from "./localNeuralVoices";
 import { LOCAL_SPEECH_VOICE } from "./speechEngine";
 
@@ -19,6 +20,7 @@ export type BoardSettings = {
   enabledCategories: string[] | null;
   categoryOrder: string[];
   favoriteCategories: string[];
+  categoryImages: Record<string, number>;
   favorites: string[];
   homeSymbols: string[] | null;
   symbolOrder: Record<string, string[]>;
@@ -42,6 +44,7 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
   enabledCategories: null,
   categoryOrder: [],
   favoriteCategories: [],
+  categoryImages: {},
   favorites: [],
   homeSymbols: null,
   symbolOrder: {},
@@ -123,6 +126,11 @@ export function normalizeBoardSettings(value: Partial<BoardSettings>): BoardSett
   const order = source.symbolOrder && typeof source.symbolOrder === "object" && !Array.isArray(source.symbolOrder)
     ? Object.fromEntries(Object.entries(source.symbolOrder).slice(0, 48).map(([key, ids]) => [key.slice(0, 120), strings(ids, 512)]))
     : {};
+  const categoryImages = source.categoryImages && typeof source.categoryImages === "object" && !Array.isArray(source.categoryImages)
+    ? Object.fromEntries(Object.entries(source.categoryImages)
+      .filter(([key, id]) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key) && key.length <= 80 && isArasaacId(id))
+      .slice(0, 48))
+    : {};
   return {
     columns: integer(source.columns, 2, 6, 4),
     cardSize: option(source.cardSize, ["compact", "regular", "large"], "regular"),
@@ -134,6 +142,7 @@ export function normalizeBoardSettings(value: Partial<BoardSettings>): BoardSett
     enabledCategories: Array.isArray(source.enabledCategories) ? strings(source.enabledCategories, 48) : null,
     categoryOrder: strings(source.categoryOrder, 48),
     favoriteCategories: strings(source.favoriteCategories, 48),
+    categoryImages,
     favorites: strings(source.favorites, 256),
     homeSymbols: Array.isArray(source.homeSymbols) ? strings(source.homeSymbols, 36) : null,
     symbolOrder: order,

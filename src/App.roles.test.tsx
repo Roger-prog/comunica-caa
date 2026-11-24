@@ -210,6 +210,19 @@ describe("App: real account roles and authentication routes", () => {
     );
   });
 
+  it("offers account roles, professional category, deletion and safe guardian guidance in the professional area", async () => {
+    render(routed(auth({ ...person, role: "fonoaudiologo" }), "/profissional"));
+    expect(await screen.findByRole("heading", { name: "Pacientes vinculados" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Meu perfil e conta" }));
+    expect(screen.getByRole("heading", { name: "Gerenciar meu perfil" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Excluir minha conta" })).toBeInTheDocument();
+    expect(screen.getByText(/Uma criança pode ter um responsável titular e vários corresponsáveis/)).toBeInTheDocument();
+    expect(screen.getByText(/Os convites são gerados exclusivamente por um responsável autorizado/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pacientes vinculados" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Acompanhamento de pacientes" }));
+    expect(await screen.findByRole("heading", { name: "Pacientes vinculados" })).toBeInTheDocument();
+  });
+
   it("shows only account settings to a professional without child controls", () => {
     render(routed(auth({ ...person, role: "fonoaudiologo" }), "/ajustes"));
     expect(

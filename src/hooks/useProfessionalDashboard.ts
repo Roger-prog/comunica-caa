@@ -230,13 +230,15 @@ export function useProfessionalDashboard(
       redeemFlight.current = token;
       setRedeemState({ owner, pending: true, error: null, success: null });
       try {
-        await redeemInvitation(code);
+        const outcome = await redeemInvitation(code);
         if (!mounted.current || currentOwner.current !== owner) return false;
         setRedeemState({
           owner,
           pending: false,
           error: null,
-          success: "Paciente vinculado. A lista foi atualizada.",
+          success: outcome === "pending"
+            ? "Pedido enviado. O responsável precisa autorizar o acesso."
+            : "Paciente vinculado. A lista foi atualizada.",
         });
         setReloadVersion((version) => version + 1);
         return true;

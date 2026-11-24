@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { configurationError, supabase } from "../lib/supabase";
 import { useAuth } from "./AuthProvider";
 import type { AccountRole } from "./authTypes";
+import { emptyProfession, ProfessionalFields } from "./ProfessionalFields";
 import {
   lookupEmailDomain,
   SignupEmailError,
@@ -34,6 +35,7 @@ export function Cadastro() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [role, setRole] = useState<AccountRole | "">("");
+  const [profession, setProfession] = useState(emptyProfession);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export function Cadastro() {
       if (await checkDomain(domain) === "invalid") return;
       const outcome = await signUp(
         nome.trim(), normalizedEmail, password, consent, role,
+        ...(role === "fonoaudiologo" && profession.category ? [profession] : []),
       );
       setPassword("");
       setConfirmation("");
@@ -151,6 +154,7 @@ export function Cadastro() {
       )}
       <form onSubmit={submit} noValidate aria-busy={busy} className="space-y-5">
         <RoleFields value={role} onChange={setRole} disabled={busy} />
+        {role === "fonoaudiologo" && <ProfessionalFields value={profession} onChange={setProfession} disabled={busy} />}
         <label htmlFor="register-name" className="block text-sm font-medium">
           Nome
           <input

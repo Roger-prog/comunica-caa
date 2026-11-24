@@ -106,6 +106,25 @@ function connect({ twoPatients = false, professionalBoardAccess = false } = {}) 
         ? [{ id: "member", crianca_id: patientId, professional_id: therapistId, board_access: professionalBoardAccess }] : [],
     );
     if (name === "list_caa_members") return json([]);
+    if (name === "get_caa_pronunciation_settings") return rows([{
+      can_read: viewer.id === parentId, can_record: viewer.id === parentId,
+      can_manage: viewer.id === parentId, retention_days: viewer.id === parentId ? 90 : null,
+    }]);
+    if (name === "list_caa_pronunciation" || name === "list_caa_pronunciation_access") return json([]);
+    if (name === "query_caa_history") {
+      const start = body.p_from && Date.parse(body.p_from + "T00:00:00-03:00");
+      const end = body.p_to && Date.parse(body.p_to + "T00:00:00-03:00") + 86_400_000;
+      const authorized = viewer.id === parentId && (body.p_crianca_id === patientId ||
+        (twoPatients && body.p_crianca_id === secondPatientId));
+      return json(authorized ? events.filter((event) =>
+        event.crianca_id === body.p_crianca_id &&
+        (!body.p_event_type || event.event_type === body.p_event_type) &&
+        (!body.p_search || event.rotulo.toLowerCase().includes(body.p_search)) &&
+        (!start || (Date.parse(event.created_at) >= start && Date.parse(event.created_at) < end)) &&
+        (!body.p_before_time || event.created_at < body.p_before_time ||
+          (event.created_at === body.p_before_time && event.id < body.p_before_id)),
+      ).slice(0, 101) : []);
+    }
     if (name === "has_caa_board_access") {
       const allowedPatient = body.p_crianca_id === patientId ||
         (viewer.id === parentId && twoPatients && body.p_crianca_id === secondPatientId);
@@ -278,10 +297,9 @@ it("can search older history, pause recording and delete only records before a s
   await signIn("responsavel@example.test");
   await screen.findByRole("button", { name: "Falar Água" });
   navigate("Histórico");
-  const next = await screen.findByRole("button", { name: "Carregar registros anteriores" });
+  await screen.findByRole("button", { name: "Carregar registros anteriores" });
   fireEvent.change(screen.getByRole("searchbox", { name: "Buscar no histórico" }), { target: { value: "Registro mais antigo" } });
   expect(screen.queryByText("Registro mais antigo")).not.toBeInTheDocument();
-  fireEvent.click(next);
   expect(await screen.findByText("Registro mais antigo")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Carregar registros anteriores" })).not.toBeInTheDocument();
 

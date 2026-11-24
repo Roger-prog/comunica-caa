@@ -239,7 +239,7 @@ describe("App: jornadas de autenticação simulada", () => {
     });
     expect(currentRoute()).toBe("/profissional");
     expect(
-      screen.getByRole("heading", { name: "Acompanhamento fonoaudiológico" }),
+      screen.getByRole("heading", { name: "Acompanhamento profissional" }),
     ).toBeInTheDocument();
     // Data from the actual professional demo hook proves the lazy panel loaded.
     expect(
